@@ -48,12 +48,7 @@ class PostgresCheckpointManager:
     """
 
     def __init__(self):
-
-        self.connection = (
-            self._create_connection()
-        )
-
-        self._initialize_database()
+        self.connection = None
 
 
     # create connection
@@ -75,6 +70,14 @@ class PostgresCheckpointManager:
 
 
     # initialize Db
+
+    def _ensure_connection(self):
+        if self.connection is None:
+            self.connection = self._create_connection()
+            self._initialize_database()
+
+        return self.connection
+
 
     def _initialize_database(self) -> None:
         """
@@ -128,7 +131,8 @@ class PostgresCheckpointManager:
 
         try:
 
-            cursor = self.connection.cursor()
+            connection = self._ensure_connection()
+            cursor = connection.cursor()
 
             cursor.execute(
                 """
@@ -197,7 +201,8 @@ class PostgresCheckpointManager:
 
         try:
 
-            cursor = self.connection.cursor(
+            connection = self._ensure_connection()
+            cursor = connection.cursor(
                 cursor_factory=RealDictCursor
             )
 
@@ -240,10 +245,3 @@ class PostgresCheckpointManager:
 
                 "error": str(e)
             }
-
-
-# global checkpoint manager
-
-postgres_checkpoint_manager = (
-    PostgresCheckpointManager()
-)

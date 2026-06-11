@@ -4,11 +4,6 @@ from agents.llm import llm
 from schemas.researcher_schema import ResearchOutput
 
 
-#llm initialization
-
-llm = llm()
-
-
 #create researcher chain
 
 def create_researcher_chain():
@@ -22,6 +17,28 @@ def create_researcher_chain():
     - provide architecture guidance
     - support downstream coding agent
     """
+
+    model = llm()
+
+    # Try to bind Tavily tool for web search
+    try:
+        from tools.web_tools.tavily_search import TavilySearchTool
+        from langchain_core.tools import tool
+
+        tavily = TavilySearchTool()
+
+        @tool
+        def web_search(query: str) -> str:
+            """Search the web for technical information."""
+            result = tavily.search(query)
+            if result["success"]:
+                snippets = [r.get("content", "") for r in result["results"][:3]]
+                return "\n\n".join(snippets)
+            return f"Search failed: {result.get('error', 'unknown error')}"
+
+        model = model.bind_tools([web_search])
+    except EnvironmentError:
+        pass  # Tavily key not set — fall back to parametric knowledge
 
     researcher_prompt = ChatPromptTemplate.from_messages([
 
@@ -166,7 +183,7 @@ Research the technical requirements and provide implementation guidance.
 
     # structure output 
 
-    structured_llm = llm.with_structured_output(
+    structured_llm = model.with_structured_output(
         ResearchOutput
     )
 

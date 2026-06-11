@@ -22,6 +22,10 @@ from agents.memory.memory_agent import (
     memory_agent
 )
 
+from agents.human.human_node import (
+    human_node
+)
+
 
 # node registry
 
@@ -38,6 +42,8 @@ NODE_REGISTRY = {
     "critic": critic_agent,
 
     "memory": memory_agent,
+
+    "human": human_node,
 }
 
 

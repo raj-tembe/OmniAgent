@@ -11,18 +11,19 @@ class AgentState(MessagesState):
 
     # PLANNING
 
-    plan: List[str]
+    plan: List[str] = []
     current_step: str = ""
-    completed_steps: List[str]
+    completed_steps: List[str] = []
 
     # RESEARCH
 
-    research_data: List[str]
-    references: List[str]
+    research_data: List[str] = []
+    references: List[str] = []
 
     # CODE GENERATION
 
-    generated_files: Dict[str, str]
+    project_name: str = ""
+    generated_files: Dict[str, str] = {}
 
     # Example:
     # {
@@ -34,38 +35,39 @@ class AgentState(MessagesState):
     # EXECUTION
 
     execution_logs: str = ""
-    execution_success: bool
+    execution_success: bool = False
     execution_output: str = ""
 
     # ERROR HANDLING
 
     error_message: str = ""
-    retry_count: int
-    max_retries: int
+    retry_count: int = 0
+    max_retries: int = 5
 
     # CRITIC / REVIEW
 
     critic_feedback: str = ""
-    quality_score: float
-    security_issues: List[str]
+    quality_score: float = 0.0
+    security_issues: List[str] = []
 
     # HUMAN-IN-THE-LOOP
 
-    approval_required: bool
-    approved: bool
+    approval_required: bool = False
+    approved: bool = False
     human_feedback: str = ""
 
     # MEMORY
 
-    memory_context: List[str]
-    previous_attempts: List[Dict[str, Any]]
+    memory_context: List[str] = []
+    previous_attempts: List[Dict[str, Any]] = []
 
     # WORKFLOW CONTROL
 
-    next_node: str = ""
+    next_agent: str = ""
     workflow_status: str = ""
+    current_agent: str = ""
 
     # OBSERVABILITY
 
-    token_usage: int
-    execution_time: float
+    token_usage: int = 0
+    execution_time: float = 0.0

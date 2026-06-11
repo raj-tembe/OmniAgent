@@ -1,6 +1,6 @@
 from typing import List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 #review status
@@ -58,6 +58,7 @@ class ReviewIssue(BaseModel):
 # critic output schema
 
 class CriticOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     """
     Structured output schema for Critic Agent.
 

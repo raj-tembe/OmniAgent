@@ -24,6 +24,11 @@ def executor_agent(state: AgentState) -> Dict:
         {}
     )
 
+    project_name = state.get(
+        "project_name",
+        "current_project"
+    )
+
     retry_count = state.get(
         "retry_count",
         0
@@ -54,6 +59,8 @@ def executor_agent(state: AgentState) -> Dict:
                 ),
 
             "next_agent": "coder",
+            "current_agent": "executor",
+            "project_name": project_name,
 
             "retry_count": retry_count + 1
 
@@ -61,63 +68,49 @@ def executor_agent(state: AgentState) -> Dict:
 
     # Execute generated project
     execution_result = execute_generated_project(
-        generated_files=generated_files
+        generated_files=generated_files,
+        project_name=project_name
     )
 
-    # Execution success 
     if execution_result.execution_success:
-        
-        executer_message = (
-            "Executer Agent: "
+        executor_message = (
+            "Execution Agent: "
             "Project executed successfully.\n\n"
-            f"Execution time: "
-            f"{execution_result.execution_time:.2f} seconds."
+            f"Execution time: {execution_result.execution_time:.2f} seconds."
         )
+        next_agent = "critic"
+    else:
+        executor_message = (
+            "Execution Agent: "
+            "Project execution failed.\n\n"
+            f"Error: {execution_result.error_message or 'Unknown error.'}"
+        )
+        next_agent = "coder" if retry_count < 3 else "critic"
 
-    # Return upadted state
+    # Return updated state
     return {
-
         "messages": [
             AIMessage(
-                content=executer_message
+                content=executor_message
             )
         ],
+
         #execution results
-        "execution_success":( 
-            execution_result.execution_success
-            ),
-
-        "execution_status": (
-            execution_result.execution_status
-            ),
-
-        "execution_output": (
-            execution_result.stdout
-            ),
-
+        "execution_success": execution_result.execution_success,
+        "execution_status": execution_result.execution_status,
+        "execution_output": execution_result.stdout,
         "execution_logs": (
             f"STDOUT:\n{execution_result.stdout}\n\n"
             f"STDERR:\n{execution_result.stderr}"
-            ),
-
-        "error_message": (
-            execution_result.error_message
-            ),
-
-        "execution_time": (
-            execution_result.execution_time
-            ),
+        ),
+        "error_message": execution_result.error_message,
+        "execution_time": execution_result.execution_time,
 
         #workflow
-        "next_agent": (
-            execution_result.next_agent
-            ),
+        "next_agent": next_agent,
+        "current_agent": "executor",
+        "project_name": project_name,
 
         #retry tracking
-        "retry_count": (
-            retry_count + (
-            0 if execution_result.execution_success 
-            else 1  
-            )
-        )
+        "retry_count": retry_count + (0 if execution_result.execution_success else 1)
     }

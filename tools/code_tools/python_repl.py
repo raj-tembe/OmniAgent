@@ -18,8 +18,7 @@ class PythonREPLTool:
     """
 
     def __init__(self):
-
-        self.globals = {}
+        pass
 
 
     # execute tool
@@ -29,9 +28,10 @@ class PythonREPLTool:
         code: str
     ) -> Dict:
         """
-        Execute Python code safely.
+        Execute Python code safely with fresh globals for each execution.
         """
 
+        fresh_globals = {}
         stdout_buffer = io.StringIO()
 
         try:
@@ -40,7 +40,7 @@ class PythonREPLTool:
                 stdout_buffer
             ):
 
-                exec(code, self.globals)
+                exec(code, fresh_globals)
 
             return {
 

@@ -49,20 +49,11 @@ def planner_agent(state: AgentState) -> Dict:
         "error_message": error_message,
     })
 
-    # extract plan from response
-    plan = response.get("tasks", [])
-
-    current_step = response.get("current_step", "")
-
-    workflow_status = response.get(
-        "workflow_status",
-        "planning"
-    )
-
-    next_agent = response.get(
-        "next_agent",
-        "coder"
-    )
+    # extract structured planner output
+    plan = response.tasks
+    current_step = response.current_step
+    workflow_status = response.workflow_status
+    next_agent = response.next_agent
 
     # routing logic based on workflow status
     if workflow_status == "completed":
@@ -120,6 +111,7 @@ def planner_agent(state: AgentState) -> Dict:
         #workflow
         "workflow_status": workflow_status,
         "next_agent": next_agent,
+        "current_agent": "planner",
 
         #user goal
         "user_request": user_request,

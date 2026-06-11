@@ -2,7 +2,6 @@
 from langchain_core.prompts import ChatPromptTemplate
 from schemas.planner_schema import PlannerOutput
 from agents.llm import llm
-llm = llm()
 
 # create planner chain
 def create_planner_chain():
@@ -16,6 +15,8 @@ def create_planner_chain():
     - Decide next workflow phase
     - Route execution intelligently
     """
+
+    model = llm()
 
     planner_prompt = ChatPromptTemplate.from_messages([
         (
@@ -152,7 +153,7 @@ Analyze the current workflow state and determine the next execution step.
     ])
 
     #structured output chain
-    structured_llm = llm.with_structured_output(PlannerOutput)
+    structured_llm = model.with_structured_output(PlannerOutput)
 
 
     return planner_prompt | structured_llm

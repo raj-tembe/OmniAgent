@@ -4,11 +4,6 @@ from agents.llm import llm
 from schemas.critic_schema import CriticOutput
 
 
-#llm initialization
-
-llm = llm()
-
-
 #create critic chain
 
 def create_critic_chain():
@@ -23,6 +18,8 @@ def create_critic_chain():
     - Validate implementation correctness
     - Suggest improvements
     """
+
+    model = llm()
 
     critic_prompt = ChatPromptTemplate.from_messages([
 
@@ -207,7 +204,7 @@ Review the generated implementation and determine workflow quality.
 
     #structure output
 
-    structured_llm = llm.with_structured_output(
+    structured_llm = model.with_structured_output(
         CriticOutput
     )
 

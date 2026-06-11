@@ -21,6 +21,8 @@ CONDITIONAL_EDGE_MAP = {
 
     "memory": "memory",
 
+    "human": "human",
+
     END: END
 }
 

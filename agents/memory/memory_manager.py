@@ -1,14 +1,10 @@
 import json
 import os
+import logging
+import threading
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-
-
-# memory storage directory
-
-MEMORY_DIR = "memory/storage"
-
-os.makedirs(MEMORY_DIR, exist_ok=True)
+from config import MEMORY_STORAGE_DIR
 
 
 # memory manager class
@@ -31,9 +27,11 @@ class MemoryManager:
     ):
 
         self.session_id = session_id
+        self._lock = threading.Lock()
+        self._max_entries = 500
 
         self.memory_file = os.path.join(
-            MEMORY_DIR,
+            str(MEMORY_STORAGE_DIR),
             f"{session_id}.json"
         )
 
@@ -60,7 +58,8 @@ class MemoryManager:
 
                 return json.load(f)
 
-        except Exception:
+        except Exception as e:
+            logging.getLogger(__name__).error("MemoryManager._load_memories failed: %s", e, exc_info=True)
 
             return []
 
@@ -72,18 +71,21 @@ class MemoryManager:
         Persist memories to disk.
         """
 
-        with open(
-            self.memory_file,
-            "w",
-            encoding="utf-8"
-        ) as f:
+        try:
+            with open(
+                self.memory_file,
+                "w",
+                encoding="utf-8"
+            ) as f:
 
-            json.dump(
-                self.memories,
-                f,
-                indent=2,
-                ensure_ascii=False
-            )
+                json.dump(
+                    self.memories,
+                    f,
+                    indent=2,
+                    ensure_ascii=False
+                )
+        except Exception as e:
+            logging.getLogger(__name__).error("MemoryManager._save_memories failed: %s", e, exc_info=True)
 
 
     # add memory 
@@ -94,7 +96,7 @@ class MemoryManager:
         content: Dict[str, Any]
     ) -> None:
         """
-        Add new memory entry.
+        Add new memory entry with thread safety and size limits.
         """
 
         memory_entry = {
@@ -108,9 +110,11 @@ class MemoryManager:
             "content": content
         }
 
-        self.memories.append(memory_entry)
-
-        self._save_memories()
+        with self._lock:
+            self.memories.append(memory_entry)
+            if len(self.memories) > self._max_entries:
+                self.memories = self.memories[-self._max_entries:]
+            self._save_memories()
 
 
     # get all memories

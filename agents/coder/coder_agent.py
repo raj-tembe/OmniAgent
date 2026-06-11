@@ -1,9 +1,39 @@
-from typing import Dict
+from typing import Dict, Optional
+import re
 
 from langchain_core.messages import AIMessage
 
 from graph.state import AgentState
 from agents.coder.coder_chain import create_coder_chain
+
+
+def _extract_project_name(user_request: str) -> str:
+    """
+    Extract project name from user request.
+    
+    Tries to extract from:
+    1. Quoted names: "project 'name'" or "create 'name'"
+    2. Filenames: "calculator.html" -> "calculator"
+    3. First few words of request
+    """
+    
+    # Try quoted names: 'project_name' or "project_name"
+    quoted_match = re.search(r"['\"]([^'\"]+)['\"]", user_request)
+    if quoted_match:
+        name = quoted_match.group(1)
+        # Remove file extension if present
+        name = name.rsplit('.', 1)[0]
+        # Sanitize name (remove spaces, special chars)
+        name = re.sub(r'[^\w-]', '_', name)
+        if name:
+            return name
+    
+    # Fallback: use first few words (max 2)
+    words = user_request.split()[:2]
+    project_name = '_'.join(words).lower()
+    project_name = re.sub(r'[^\w-]', '_', project_name)
+    
+    return project_name or "generated_project"
 
 
 def coder_agent(state: AgentState) -> Dict:
@@ -21,6 +51,11 @@ def coder_agent(state: AgentState) -> Dict:
     #extract state
 
     user_request = state.get("user_request", "")
+    
+    # Extract or preserve project name
+    project_name = state.get("project_name", "")
+    if not project_name:
+        project_name = _extract_project_name(user_request)
 
     current_step = state.get("current_step", "")
 
@@ -139,6 +174,7 @@ def coder_agent(state: AgentState) -> Dict:
 
         # generate codebase 
         "generated_files": updated_files,
+        "project_name": project_name,
 
         # coding metadata
         "coding_status": coding_status,
@@ -146,6 +182,7 @@ def coder_agent(state: AgentState) -> Dict:
 
         # workflow
         "next_agent": next_agent,
+        "current_agent": "coder",
 
         # reset execution state before rerun
         "execution_success": False,

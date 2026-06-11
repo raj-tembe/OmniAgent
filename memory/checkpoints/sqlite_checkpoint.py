@@ -1,20 +1,10 @@
 import json
 import os
 import sqlite3
+import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-
-
-# sqlite checkpoint manager 
-
-CHECKPOINT_DIR = "memory/checkpoints/data"
-
-os.makedirs(CHECKPOINT_DIR, exist_ok=True)
-
-SQLITE_DB_PATH = os.path.join(
-    CHECKPOINT_DIR,
-    "workflow_checkpoints.db"
-)
+from config import SQLITE_DB_PATH
 
 
 # sqlite checkpoint manager
@@ -32,9 +22,11 @@ class SQLiteCheckpointManager:
 
     def __init__(
         self,
-        db_path: str = SQLITE_DB_PATH
+        db_path: str = None
     ):
 
+        if db_path is None:
+            db_path = str(SQLITE_DB_PATH)
         self.db_path = db_path
 
         self._initialize_database()
@@ -141,6 +133,7 @@ class SQLiteCheckpointManager:
             }
 
         except Exception as e:
+            logging.getLogger(__name__).error("SQLiteCheckpointManager.save_checkpoint failed: %s", e, exc_info=True)
 
             return {
 
@@ -217,6 +210,7 @@ class SQLiteCheckpointManager:
             }
 
         except Exception as e:
+            logging.getLogger(__name__).error("SQLiteCheckpointManager.load_checkpoint failed: %s", e, exc_info=True)
 
             return {
 

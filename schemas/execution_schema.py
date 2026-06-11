@@ -1,5 +1,5 @@
 from typing import List, Literal, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 # Execution status
 
@@ -26,6 +26,7 @@ class ExecutionResult(BaseModel):
     """
     Structured execution result schema.
     """
+    model_config = ConfigDict(extra="forbid")
 
     execution_status: ExecutionStatus = Field(
         ...,
@@ -65,4 +66,9 @@ class ExecutionResult(BaseModel):
     execution_time: float= Field(
         ...,
         description="Execution duration in seconds."
+    )
+
+    next_agent: Literal["coder", "critic", "human"] = Field(
+        ...,
+        description="Next agent to route to after execution."
     )

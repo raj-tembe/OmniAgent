@@ -1,6 +1,6 @@
 from typing import Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 #coding status options
@@ -58,7 +58,8 @@ class GeneratedFile(BaseModel):
     )
 
 #coder output schema
-class CoderOutput(BaseModel):
+class CoderOutput(BaseModel):    
+    model_config = ConfigDict(extra="forbid")    
     """
     Structured output schema for the Coding Agent.
 
@@ -94,6 +95,12 @@ class CoderOutput(BaseModel):
     # ============================================
     # FILE METADATA
     # ============================================
+
+    project_name: str = Field(
+        default="current_project",
+        description="Name of the project being generated.",
+        examples=["my_api", "calculator_app", "todo_list"]
+    )
 
     file_manifest: Optional[List[GeneratedFile]] = Field(
         default=None,

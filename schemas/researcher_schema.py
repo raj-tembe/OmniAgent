@@ -1,6 +1,6 @@
 from typing import List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 #research status
@@ -96,7 +96,9 @@ class ResearchFinding(BaseModel):
 
 
 #research output schema
-class ResearchOutput(BaseModel):
+class ResearchOutput(BaseModel):    
+    
+    model_config = ConfigDict(extra="forbid")    
     """
     Structured output schema for Research Agent.
 

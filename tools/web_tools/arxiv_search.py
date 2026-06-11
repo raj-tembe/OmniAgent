@@ -1,3 +1,4 @@
+import logging
 from typing import Dict, List
 
 import arxiv
@@ -78,6 +79,7 @@ class ArxivSearchTool:
             }
 
         except Exception as e:
+            logging.getLogger(__name__).error("ArxivSearchTool.search failed: %s", e, exc_info=True)
 
             return {
 

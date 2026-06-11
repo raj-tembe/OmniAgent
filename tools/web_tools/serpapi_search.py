@@ -1,4 +1,5 @@
 import os
+import logging
 from typing import Dict
 
 from serpapi import GoogleSearch
@@ -74,6 +75,7 @@ class SerpAPISearchTool:
             }
 
         except Exception as e:
+            logging.getLogger(__name__).error("SerpAPISearch.search failed: %s", e, exc_info=True)
 
             return {
 

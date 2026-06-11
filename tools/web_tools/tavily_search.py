@@ -1,18 +1,8 @@
 import os
+import logging
 from typing import Dict, List, Optional
 
 from tavily import TavilyClient
-
-
-#tavily client initialization
-
-TAVILY_API_KEY = os.getenv(
-    "TAVILY_API_KEY"
-)
-
-client = TavilyClient(
-    api_key=TAVILY_API_KEY
-)
 
 
 #tavily search tool
@@ -34,6 +24,10 @@ class TavilySearchTool:
     ):
 
         self.max_results = max_results
+        api_key = os.getenv("TAVILY_API_KEY")
+        if not api_key:
+            raise EnvironmentError("TAVILY_API_KEY is not set.")
+        self.client = TavilyClient(api_key=api_key)
 
 
     #search
@@ -49,7 +43,7 @@ class TavilySearchTool:
 
         try:
 
-            response = client.search(
+            response = self.client.search(
 
                 query=query,
 
@@ -71,6 +65,7 @@ class TavilySearchTool:
             }
 
         except Exception as e:
+            logging.getLogger(__name__).error("TavilySearchTool.search failed: %s", e, exc_info=True)
 
             return {
 

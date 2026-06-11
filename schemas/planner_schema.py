@@ -1,5 +1,5 @@
 from typing import List, Literal, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 #workflow status options
 
@@ -26,6 +26,7 @@ NextAgent = Literal[
 #planner output schema  
 
 class PlannerOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     """
     Structured output schema for Planner Agent.
 
@@ -88,6 +89,17 @@ class PlannerOutput(BaseModel):
             "Execution has not started yet,"
             "so the workflow should proceed"
             "to the coding Agent."
+        ]
+    )
+
+    #next agent selection
+    next_agent: NextAgent = Field(
+        ...,
+        description=(
+            "The next agent the workflow should route to."
+        ),
+        examples=[
+            "coder"
         ]
     )
 

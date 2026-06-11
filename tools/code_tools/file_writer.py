@@ -1,9 +1,13 @@
 import os
+import logging
 from pathlib import Path
 from typing import Dict
 
 
 # file writer tool
+
+logger = logging.getLogger(__name__)
+
 
 class FileWriterTool:
     """
@@ -43,6 +47,8 @@ class FileWriterTool:
 
                 f.write(content)
 
+            logger.info(f"File written: {filepath} ({len(content)} bytes)")
+
             return {
 
                 "success": True,
@@ -51,6 +57,7 @@ class FileWriterTool:
             }
 
         except Exception as e:
+            logger.error(f"Failed to write file {filepath}: {e}", exc_info=True)
 
             return {
 

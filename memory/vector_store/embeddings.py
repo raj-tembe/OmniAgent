@@ -1,76 +1,43 @@
-import os
-from typing import List
+from typing import List, Optional
 
-from langchain_google_genai import (
-    GoogleGenerativeAIEmbeddings
-)
+from langchain_huggingface import HuggingFaceEmbeddings
 
+# Default embedding model
+EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
-# embedding config
-
-GOOGLE_API_KEY = os.getenv(
-    "GOOGLE_API_KEY"
-)
-
-EMBEDDING_MODEL = (
-    "gemini-embedding-2-preview"
-)
-
-
-# embedding manager
 
 class EmbeddingManager:
     """
-    Embedding generation system.
+    Manages text embeddings using a HuggingFace sentence-transformers model.
 
-    Responsibilities:
-    - generate vector embeddings
-    - support semantic retrieval
-    - enable memory similarity search
+    Lazy loads the model on first use to avoid slow startup.
+    Supports both single‑text and batch embedding.
     """
 
-    def __init__(self):
-
-        self.embedding_model = (
-            GoogleGenerativeAIEmbeddings(
-                model=EMBEDDING_MODEL,
-                google_api_key=GOOGLE_API_KEY
-            )
-        )
-
-
-    # embed single text
-
-    def embed_text(
-        self,
-        text: str
-    ) -> List[float]:
+    def __init__(self, model_name: str = EMBEDDING_MODEL) -> None:
         """
-        Generate embedding for single text.
+        Args:
+            model_name: HuggingFace model identifier (default: all-MiniLM-L6-v2).
         """
+        self._model_name = model_name
+        self._embedding_model: Optional[HuggingFaceEmbeddings] = None
 
-        return (
-            self.embedding_model
-            .embed_query(text)
-        )
+    def _load_model(self) -> HuggingFaceEmbeddings:
+        """Initialise the embedding model on first access."""
+        if self._embedding_model is None:
+            self._embedding_model = HuggingFaceEmbeddings(model_name=self._model_name)
+        return self._embedding_model
 
+    def embed_text(self, text: str) -> List[float]:
+        """Generate an embedding vector for a single text."""
+        model = self._load_model()
+        return model.embed_query(text)
 
-    # embed multiple text
-
-    def embed_documents(
-        self,
-        documents: List[str]
-    ) -> List[List[float]]:
-        """
-        Generate embeddings for documents.
-        """
-
-        return (
-            self.embedding_model
-            .embed_documents(documents)
-        )
+    def embed_documents(self, documents: List[str]) -> List[List[float]]:
+        """Generate embedding vectors for a batch of documents."""
+        model = self._load_model()
+        return model.embed_documents(documents)
 
 
-# global embedding instance
-
+# Global convenience instance (model is not loaded until first use)
 embedding_manager = EmbeddingManager()

@@ -1,4 +1,5 @@
 import os
+import logging
 from typing import Any, Dict, List, Optional
 
 import chromadb
@@ -7,13 +8,7 @@ from chromadb.config import Settings
 from memory.vector_store.embeddings import (
     embedding_manager
 )
-
-
-# chroma config
-
-CHROMA_DB_PATH = "memory/chroma_db"
-
-os.makedirs(CHROMA_DB_PATH, exist_ok=True)
+from config import CHROMA_DB_PATH
 
 
 # chroma vector store
@@ -35,7 +30,7 @@ class ChromaMemoryStore:
     ):
 
         self.client = chromadb.PersistentClient(
-            path=CHROMA_DB_PATH,
+            path=str(CHROMA_DB_PATH),
             settings=Settings(
                 anonymized_telemetry=False
             )
@@ -85,6 +80,7 @@ class ChromaMemoryStore:
             }
 
         except Exception as e:
+            logging.getLogger(__name__).error("ChromaMemoryStore.store_memory failed: %s", e, exc_info=True)
 
             return {
 
@@ -132,6 +128,7 @@ class ChromaMemoryStore:
             }
 
         except Exception as e:
+            logging.getLogger(__name__).error("ChromaMemoryStore.search_memories failed: %s", e, exc_info=True)
 
             return {
 
@@ -169,6 +166,7 @@ class ChromaMemoryStore:
             }
 
         except Exception as e:
+            logging.getLogger(__name__).error("ChromaMemoryStore.get_memory failed: %s", e, exc_info=True)
 
             return {
 
@@ -202,6 +200,7 @@ class ChromaMemoryStore:
             }
 
         except Exception as e:
+            logging.getLogger(__name__).error("ChromaMemoryStore.delete_memory failed: %s", e, exc_info=True)
 
             return {
 
@@ -246,6 +245,7 @@ class ChromaMemoryStore:
             }
 
         except Exception as e:
+            logging.getLogger(__name__).error("ChromaMemoryStore.clear_all_memories failed: %s", e, exc_info=True)
 
             return {
 

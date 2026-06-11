@@ -1,20 +1,23 @@
 """
-
-LLM initialization for the OmniAgent system.
-
-Note : for now(initial development phase) we will only use google gemini 2.5 flash (free api)
-
+LLM initialisation for OmniAgent.
+Uses Google Gemini 2.5 Flash. Cached as a singleton — calling llm() multiple times
+returns the same instance.
 """
-
 import os
+import functools
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
+from config import GEMINI_MODEL, LLM_TEMPERATURE
 
-#setting up environment variables
 load_dotenv()
-os.environ["GOOGLE_API_KEY"] = os.getenv("GOOGLE_GEMINI_API_KEY")
 
-# llm logic
-def llm():
-    return ChatGoogleGenerativeAI(model="gemini-2.5-flash", 
-                                  temperature=0.6)
+@functools.lru_cache(maxsize=1)
+def llm() -> ChatGoogleGenerativeAI:
+    """Return a cached LLM instance. Raises EnvironmentError if API key is missing."""
+    api_key = os.getenv("GOOGLE_GEMINI_API_KEY")
+    if not api_key:
+        raise EnvironmentError(
+            "GOOGLE_GEMINI_API_KEY is not set. Add it to your .env file."
+        )
+    os.environ["GOOGLE_API_KEY"] = api_key
+    return ChatGoogleGenerativeAI(model=GEMINI_MODEL, temperature=LLM_TEMPERATURE)

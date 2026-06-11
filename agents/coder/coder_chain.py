@@ -3,11 +3,6 @@ from agents.llm import llm
 from schemas.coder_schema import CoderOutput
 
 
-#llm initialization
-
-llm = llm()
-
-
 # create coder chain
 
 def create_coder_chain():
@@ -21,6 +16,8 @@ def create_coder_chain():
     - Improve existing code
     - Respond to critic feedback
     """
+
+    model = llm()
 
     coder_prompt = ChatPromptTemplate.from_messages([
 
@@ -178,7 +175,7 @@ Generate or update the project implementation based on the workflow state.
 
     # structured output 
 
-    structured_llm = llm.with_structured_output(
+    structured_llm = model.with_structured_output(
         CoderOutput
     )
 

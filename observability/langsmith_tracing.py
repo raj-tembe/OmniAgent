@@ -17,7 +17,7 @@ LANGCHAIN_API_KEY = os.getenv(
 
 LANGCHAIN_PROJECT = os.getenv(
     "LANGCHAIN_PROJECT",
-    "OMNIAGENT"
+    "OmniAgent"
 )
 
 

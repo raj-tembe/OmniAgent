@@ -10,8 +10,6 @@ from graph.workflow import (
 
 class GraphVisualizer:
     """
-    Workflow visualization utility.
-
     Responsibilities:
     - visualize LangGraph workflow
     - export Mermaid diagrams

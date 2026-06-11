@@ -7,7 +7,8 @@ GRAPH_EDGES = {
 
     "planner": [
         "researcher",
-        "coder"
+        "coder",
+        "human"
     ],
 
     "researcher": [
@@ -19,17 +20,35 @@ GRAPH_EDGES = {
     ],
 
     "executor": [
-        "critic"
+        "critic",
+        "coder",
+        "human"
     ],
 
     "critic": [
-        "memory"
+        "memory",
+        "coder",
+        "human"
     ],
 
     "memory": [
         END
+    ],
+
+    "human": [
+        "coder",
+        END
     ]
 }
+
+
+# validate transition
+
+def validate_transition(source: str, destination: str) -> bool:
+    """Returns True if the transition is explicitly defined OR destination is END."""
+    if destination == END:
+        return True
+    return destination in GRAPH_EDGES.get(source, [])
 
 
 # get next edges
