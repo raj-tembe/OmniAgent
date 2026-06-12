@@ -4,6 +4,7 @@ All hardcoded constants live here. Import from this module everywhere.
 """
 import os
 from pathlib import Path
+from platformdirs import user_data_dir
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -11,11 +12,19 @@ load_dotenv()
 # Project root
 PROJECT_ROOT = Path(__file__).resolve().parent
 
+# User data directory — resolves to the right place per OS:
+#   Linux:   ~/.local/share/omniagent
+#   macOS:   ~/Library/Application Support/omniagent
+#   Windows: C:\Users\<you>\AppData\Local\omniagent\omniagent
+USER_DATA_DIR = Path(
+    os.getenv("OMNIAGENT_DATA_DIR") or user_data_dir("omniagent", "omniagent")
+)
+
 # Paths
-GENERATED_PROJECT_DIR = PROJECT_ROOT / "execution" / "generated_project"
-MEMORY_STORAGE_DIR    = PROJECT_ROOT / "memory" / "storage"
-CHROMA_DB_PATH        = PROJECT_ROOT / "memory" / "chroma_db"
-CHECKPOINT_DIR        = PROJECT_ROOT / "memory" / "checkpoints" / "data"
+GENERATED_PROJECT_DIR = USER_DATA_DIR / "projects" 
+MEMORY_STORAGE_DIR    = USER_DATA_DIR / "memory" / "storage"
+CHROMA_DB_PATH        = USER_DATA_DIR / "memory" / "chroma_db"
+CHECKPOINT_DIR        = USER_DATA_DIR / "memory" / "checkpoints" / "data"
 SQLITE_DB_PATH        = CHECKPOINT_DIR / "workflow_checkpoints.db"
 
 # Ensure directories exist

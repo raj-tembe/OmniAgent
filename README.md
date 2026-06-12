@@ -4,27 +4,19 @@
 
 ---
 
-# 🌟 Vision
+# 🌟 Core Philosophy
 
-This project is designed to explore the true capabilities of **Agentic AI Systems** using:
+Instead of simple chatbots, this system replicates how **real engineering teams collaborate**:
 
-- LangGraph
-- Multi-Agent Workflows
-- Tool Calling
-- Autonomous Reasoning
-- Human-in-the-loop Systems
-- Persistent Memory
-- Self-healing AI Loops
+```
+User Request → Multi-Stage Processing → Autonomous Execution → Quality Assurance → Human Review
+```
 
-Instead of a simple chatbot, this system behaves like an **AI Engineering Team**.
-
-The platform can:
-- research topics
-- generate production code
-- execute programs
-- debug errors
-- critique outputs
-- improve itself iteratively
+Each agent operates independently with:
+- **Specialized roles** - Planning, research, coding, execution, critique
+- **Tool access** - Web search, code execution, file operations, GitHub integration
+- **Memory integration** - Context awareness from past operations
+- **Decision-making authority** - Agents route workflow based on outcomes
 
 ---
 
@@ -165,9 +157,60 @@ The platform remembers:
 - user preferences
 - execution history
 
+# 🚀 Quick Start
+
+## Prerequisites
+
+- Python 3.10+
+- Docker (for sandbox execution)
+- API keys: OpenAI, Tavily, SerpAPI (optional)
+
+## Installation
+
+```bash
+# Clone repository
+git clone https://github.com/raj-tembe/omniagent.git
+cd omniagent
+
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\\Scripts\\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Configure environment
+cp .env.example .env
+# Edit .env with your API keys
+```
+
+## Basic Usage
+
+```python
+from main import initialize_agent_system
+
+# Initialize the system
+agent_system = initialize_agent_system()
+
+# Execute a task
+result = agent_system.invoke(
+    user_request="Build a FastAPI authentication service",
+    model="gpt-4"
+)
+
+print(result)
+```
+
+## Running the API Server
+
+```bash
+python api/app.py
+# Server runs on http://localhost:8000
+```
+
 ---
 
-# 🏗️ System Architecture
+
 
 ```text
                         ┌────────────────────┐
@@ -465,19 +508,19 @@ flowchart TD
 
 ---
 
-# 🧰 Technology Stack
+# � Technology Stack
 
-| Layer | Technology |
-|---|---|
-| Orchestration | LangGraph |
-| LLMs | OpenAI / Groq / Gemini |
-| Backend | FastAPI |
-| Frontend | Next.js |
-| Memory | Redis / SQLite |
-| Vector DB | ChromaDB |
-| Sandbox | Docker |
-| Observability | LangSmith |
-| Authentication | Clerk/Auth0 |
+| Layer | Technology | Purpose |
+|-------|-----------|----------|
+| **Orchestration** | LangGraph | Stateful workflow management |
+| **Language Models** | OpenAI / Groq / Gemini | Agent reasoning |
+| **Backend** | FastAPI | REST API & WebSocket |
+| **Frontend** | Next.js | Web dashboard |
+| **Memory Storage** | ChromaDB | Vector embeddings & semantic search |
+| **Checkpoints** | SQLite / PostgreSQL | Workflow persistence |
+| **Execution** | Docker | Isolated code sandbox |
+| **Observability** | LangSmith | Tracing & debugging |
+| **Code Quality** | Pydantic | Type validation & schemas |
 
 ---
 
@@ -670,96 +713,209 @@ OMNIAGENT/
 
 # 🔒 Safety & Reliability
 
-The platform includes:
-- human approval layers
-- execution sandboxes
-- hallucination detection
-- retry limits
-- validation nodes
-- isolated environments
+Production-grade safety mechanisms:
+
+| Feature | Purpose |
+|---------|----------|
+| **Human Approval Layers** | Critical operations require explicit human authorization |
+| **Execution Sandboxes** | All code runs in isolated Docker containers |
+| **Retry Logic** | Automatic recovery with configurable attempt limits |
+| **Validation Nodes** | Code quality & security checks before execution |
+| **Isolated Environments** | No access to host system from running code |
+| **Comprehensive Logging** | Full audit trail of all operations |
+| **Error Containment** | Failures don't cascade to other agents |
 
 ---
 
 # ✅ Currently Completed Work
 
-## Core Architecture
-- ✅ Multi-agent system design with LangGraph
-- ✅ Agent types implemented:
-  - Planner Agent
-  - Researcher Agent
-  - Coder Agent
-  - Executor Agent (Docker & Sandbox runners)
-  - Critic Agent
-  - Memory Agent
-- ✅ Shared state management system
-- ✅ Error handling and repair loops
+## Core Architecture ✓
+- ✅ **Multi-agent system** - Full LangGraph-based orchestration
+- ✅ **Seven specialized agents**:
+  - Planner Agent - Task decomposition & strategy
+  - Researcher Agent - Web & documentation search
+  - Coder Agent - Code generation & project scaffolding
+  - Executor Agent - Docker & sandbox-based execution
+  - Critic Agent - Quality & security review
+  - Memory Agent - Long-term knowledge management
+  - Human Approval Node - Safety layer for critical operations
+- ✅ **Centralized state management** - TypedDict-based shared state across all agents
+- ✅ **Intelligent error handling** - Automatic repair loops with retry logic
+- ✅ **Conditional routing** - Dynamic workflow paths based on execution results
 
-## Tools & Integration
-- ✅ Web search tools (Tavily, SerpAPI, ArXiv)
-- ✅ Code tools (Python REPL, file reader/writer, terminal runner)
-- ✅ GitHub tools (repo analyzer, commit generator, search)
-- ✅ Validation tools (syntax checker, dependency checker, security checker)
-- ✅ Sandbox execution environment
-- ✅ Docker integration for isolated execution
+## Tools & Integration ✓
+- ✅ **Web Search Suite**
+  - Tavily API integration
+  - SerpAPI integration
+  - ArXiv academic search
+- ✅ **Code Execution Tools**
+  - Python REPL with isolated execution
+  - File reader/writer system
+  - Terminal runner with command execution
+- ✅ **GitHub Integration**
+  - Repository analyzer
+  - Commit message generator
+  - Code search capabilities
+- ✅ **Code Quality & Security**
+  - Python syntax checker
+  - Dependency analyzer
+  - Security vulnerability scanner
+- ✅ **Sandbox Execution**
+  - Docker-based isolated environments
+  - Sandbox runner for code isolation
+  - Execution log capture & analysis
 
-## Memory & Persistence
-- ✅ Vector store implementation (ChromaDB)
-- ✅ Checkpoint system for workflow persistence
-- ✅ Conversation memory (short-term & long-term)
-- ✅ Execution log storage
+## Memory & Persistence ✓
+- ✅ **Vector Store** - ChromaDB with semantic search
+- ✅ **Checkpoint System** - SQLite & PostgreSQL support for workflow recovery
+- ✅ **Conversation Memory**
+  - Short-term context window
+  - Long-term knowledge retention
+- ✅ **Execution Tracking** - Comprehensive logging of all operations
+- ✅ **Project Artifacts** - Generated code storage & retrieval
 
-## Infrastructure
-- ✅ LangGraph workflow orchestration
-- ✅ Conditional routing and branching
-- ✅ Human-in-the-loop approval system
-- ✅ LangSmith observability integration
-- ✅ FastAPI backend setup
-- ✅ Schema definitions for all agents
+## Infrastructure & Observability ✓
+- ✅ **LangGraph Workflow Engine** - Complete graph-based orchestration
+- ✅ **LangSmith Integration** - Full observability & tracing
+- ✅ **FastAPI Backend** - REST API interface
+- ✅ **Type Safety** - Pydantic schemas for all data structures
+- ✅ **Modular Design** - Extensible agent & tool architecture
+- ✅ **Docker Support** - Container-based deployment
+
+## Workflow Capabilities ✓
+- ✅ **Multi-stage processing** - Request → Plan → Research → Code → Execute → Review
+- ✅ **Error recovery** - Automatic detection and repair of failures
+- ✅ **Quality gates** - Critic validation before approval
+- ✅ **Human oversight** - Interrupt points for critical decisions
+- ✅ **Memory integration** - Context-aware suggestions based on history
 
 ---
 
-# 🎯 Binary Package Development
+# 🎯 Next Phase: Binary Package Development
+## ACRA : Autonomous Coding & Research Agent
+## Vision: Enterprise-Grade CLI Tool
 
-## Vision: CLI Tool Like Claude CLI & Copilot CLI
+Transforming OmniAgent into a **production-ready binary CLI tool** comparable to:
+- **Claude CLI** - Anthropic's command-line interface  
+- **Copilot CLI** - GitHub's Copilot command-line tool  
+- **Devin API** - Autonomous software engineering platform
 
-The long-term goal is to transform OmniAgent into a **production-ready binary CLI tool** similar to:
-- **Claude CLI** - Anthropic's command-line interface
-- **Copilot CLI** - GitHub's Copilot command-line tool
+## OmniAgent CLI Command Reference
 
-### Planned CLI Features
+OmniAgent is a multi-provider agentic CLI for setup, task execution, memory, debugging, and project workflows.
 
-```bash
-# Basic usage
-omniagent "Build a REST API with authentication"
+## At a glance
 
-# Interactive mode
-omniagent --interactive
+* **CLI name:** `acra`
+* **Package:** `acra`
+* **Providers:** Gemini, OpenAI, Ollama, HuggingFace, Groq, Mistral, Anthropic, and custom endpoints
+* **Core flow:** `acra serve` → provider selection → model + API key → theme + tone → workspace → ready
 
-# Specify project type
-omniagent --type fastapi "Build a task management API"
+## First run
 
-# Use specific LLM
-omniagent --model gpt-4 "Generate a machine learning pipeline"
+On the first launch, `acra serve` opens the setup wizard and guides the user through:
 
-# Run in watch mode
-omniagent --watch "Create a React dashboard"
+1. Choosing a provider
+2. Selecting a model
+3. Entering an API key or endpoint
+4. Entering a research API key (Tavily & Serpapi)
+5. Picking a theme and tone
+6. Setting the workspace
 
-# View execution logs
-omniagent logs --task-id abc123
+After setup, OmniAgent loads the saved profile automatically on later runs.
 
-# List generated projects
-omniagent list projects
-```
+## Setup and configuration
 
-### Binary Package Roadmap
+| Command                     | Description                                                                                                                                                                    |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `acra serve [entry]`        | Start OmniAgent. On first run, opens the setup wizard. On later runs, loads the saved profile and opens the prompt directly. Respects `--profile` to switch configurations.    |
+| `acra init`                 | Re-run the full setup wizard from scratch. Useful when switching providers, resetting preferences, or onboarding a new project. Existing config is backed up before overwrite. |
+| `acra config`               | Open the saved config in `$EDITOR` for manual editing.                                                                                                                         |
+| `acra config <key> <value>` | Set a single configuration value inline, such as `acra config tone concise` or `acra config theme monokai`.                                                                    |
+| `acra config --list`        | Display all current config values in a readable table.                                                                                                                         |
+| `acra update`               | Check PyPI for a newer version of `acra-agent` and upgrade if available. Shows a changelog summary after update.                                                               |
 
-- Standalone executable for macOS, Linux, and Windows
-- Package distribution via Homebrew, apt, chocolatey
-- Configuration file support (~/.omniagent/config.json)
-- Shell completion support (bash, zsh, fish)
-- Auto-update mechanism
-- Telemetry and analytics (optional)
-- Plugin system for custom agents
+## Brain management
+
+| Command                        | Description                                                                                                                                     |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `acra brain [interactive]`     | Open the brain picker. Choose a provider, model, and API key or endpoint, then save to the active profile.                                      |
+| `acra brain --list`            | Show all configured brains across profiles, including the active one.                                                                           |
+| `acra brain use <name>`        | Switch to a saved brain by name. Applies to the next `acra serve` or `acra ask`.                                                                |
+| `acra brain add`               | Add a new brain without replacing the current one. Useful for local or secondary providers.                                                     |
+| `acra brain remove <name>`     | Remove a saved brain by name. Confirms before removing the active brain.                                                                        |
+| `acra brain test`              | Send a minimal test prompt to the active brain and report latency, token count, and response.                                                   |
+| `acra brain models [provider]` | List available models for a provider. For local providers, shows locally available models; for hosted providers, fetches the latest model list. |
+
+## Agent tasks
+
+| Command                       | Description                                                                                                                                               |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `acra ask "<prompt>" [agent]` | Run a single task without entering the interactive session. Executes the planner → researcher → coder → executor → critic pipeline and prints the result. |
+| `acra build "<description>"`  | Generate and run a complete project from a description. Writes output to the configured workspace. Supports `--dry-run`.                                  |
+| `acra fix [file]`             | Analyze a file or the entire workspace for bugs, run the critic pipeline, and apply suggested fixes. Shows a diff before writing. Supports `--auto`.      |
+| `acra review [file]`          | Run the critic agent only. Returns structured feedback with bugs, style issues, security concerns, and a quality score out of 10.                         |
+| `acra explain [file]`         | Explain a file or codebase in human-readable form. Includes a summary, architecture overview, and per-function breakdown.                                 |
+| `acra research "<topic>"`     | Run only the researcher agent and return structured findings, references, and snippets. No code generation or execution.                                  |
+| `acra run [file]`             | Run a generated project or a specific file in the sandbox runner. Captures stdout, stderr, and exit code. Supports `--docker`.                            |
+
+## Context and memory
+
+| Command                             | Description                                                                                                           |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `acra context add <path> [context]` | Add a file or directory to the active session context. Supports glob patterns such as `src/**/*.py`.                  |
+| `acra context list`                 | Show files currently in the session context, including size, token estimate, and embedding status.                    |
+| `acra context clear`                | Remove all files from the current session context. Does not delete memory.                                            |
+| `acra memory list`                  | List stored memory entries for the current session, including type, timestamp, and a short preview. Supports `--all`. |
+| `acra memory clear`                 | Wipe all memory for the current session. Supports `--session <id>` for a specific past session.                       |
+| `acra memory search "<query>"`      | Search stored memories semantically and return the most relevant matches with similarity scores.                      |
+| `acra session list`                 | List past sessions with IDs, timestamps, and last task summaries.                                                     |
+| `acra session resume <id>`          | Resume a previous session and restore messages, memory, and graph position.                                           |
+
+## Utilities
+
+| Command                           | Description                                                                                                                                             |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `acra keys set <provider> [util]` | Save an API key securely to the OS keyring. Nothing is stored in plaintext config.                                                                      |
+| `acra keys list`                  | Show which providers have saved keys, using masked values only.                                                                                         |
+| `acra keys delete <provider>`     | Remove a stored API key from the keyring.                                                                                                               |
+| `acra logs`                       | Tail live agent logs, including inputs, outputs, routing decisions, and token usage. Supports `--session <id>` and `--level debug`.                     |
+| `acra stats`                      | Show usage statistics for the current session or all time, including tasks run, tokens used, average quality score, retry rate, and most-used commands. |
+| `acra workspace [path]`           | Set or display the active workspace directory. Without arguments, prints the current workspace.                                                         |
+
+## Dev and advanced commands
+
+| Command                     | Description                                                                                            |                                                                                                    |
+| --------------------------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| `acra graph show [dev]`     | Print a text-mode diagram of the active LangGraph workflow, including nodes, edges, and routing rules. |                                                                                                    |
+| `acra graph run "<prompt>"` | Run a prompt like `acra ask`, but show each node’s input and output state step by step.                |                                                                                                    |
+| `acra plugin list`          | List installed plugin tools from `~/.acra/plugins/`.                                                   |                                                                                                    |
+| `acra plugin add <path url>`| Install a plugin from a local path or GitHub URL after validating its `register_tool()` signature. |
+| `acra --version`            | Print the installed version of `acra-agent` along with Python, LangGraph, and LangChain versions.      |                                                                                                    |
+| `acra --help`               | Print the full help text. Append `--help` to any subcommand for contextual help.                       |                                                                                                    |
+
+## Global flags
+
+These flags work across commands.
+
+| Flag                  | Description                                                                                                                   |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `--profile <name>`    | Use a named config profile instead of the default. Each profile can have its own brain, theme, workspace, and memory backend. |
+| `--workspace <path>`  | Temporarily override the workspace directory for this invocation only.                                                        |
+| `--no-memory`         | Run without reading or writing to memory. Useful for isolated one-off tasks.                                                  |
+| `--dry-run`           | Plan and generate without executing code or writing files.                                                                    |
+| `--json`              | Return output as JSON instead of formatted text.                                                                              |
+| `--verbose`, `-v`     | Show routing, state diffs, and tool calls while the agent runs.                                                               |
+| `--quiet`, `-q`       | Suppress all output except the final result.                                                                                  |
+| `--timeout <seconds>` | Override the default execution timeout.                                                                                       |
+
+## Recommended command flow
+
+* Start with `acra serve` for interactive use.
+* Use `acra brain` or `acra init` when changing providers or resetting setup.
+* Use `acra ask`, `acra build`, `acra fix`, or `acra review` for day-to-day work.
+* Use `acra context`, `acra memory`, and `acra session` when working with long-running projects.
+* Use `acra logs`, `acra stats`, and `acra graph show` for debugging and observability.
 
 ---
 
@@ -795,16 +951,18 @@ This project is inspired by:
 
 # 🎓 Learning Outcomes
 
-By building this project, you will deeply understand:
+This project provides deep expertise in:
 
-- LangGraph internals
-- Agent orchestration
-- Autonomous workflows
-- Multi-agent systems
-- AI debugging loops
-- Production AI architecture
-- Stateful AI systems
-- AI reliability engineering
+| Area | Learning |
+|------|----------|
+| **LangGraph** | Advanced state management, conditional routing, checkpointing |
+| **Agent Systems** | Designing specialized AI workers with specific responsibilities |
+| **Orchestration** | Coordinating complex multi-stage workflows |
+| **Tool Integration** | Building reliable tool-calling systems |
+| **Production AI** | Error handling, observability, safety mechanisms |
+| **Memory Systems** | Persistent context, semantic search, long-term reasoning |
+| **Autonomous Debugging** | Self-healing loops, error recovery, retry strategies |
+| **System Design** | Scalable architecture for AI applications |
 
 ---
 
@@ -816,9 +974,20 @@ The long-term vision is to create:
 
 ---
 
-# 📜 License
+## 📖 Documentation
 
-MIT License
+Detailed documentation available in the `docs/` directory:
+- [Architecture Deep Dive](docs/architecture.md) - System design and principles
+- [Workflow Guide](docs/workflow.md) - Step-by-step execution flow
+- [Agent Design](docs/agent_design.md) - Creating custom agents
+- [Memory Systems](docs/memory_system.md) - Persistence & retrieval
+- [Deployment Guide](docs/deployment.md) - Production setup
+
+---
+
+## 📜 License
+
+MIT License - See LICENSE file for details
 
 ---
 
