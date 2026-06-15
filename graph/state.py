@@ -1,4 +1,4 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from langgraph.graph import MessagesState
 
 
@@ -17,26 +17,31 @@ class AgentState(MessagesState):
 
     # RESEARCH
 
-    research_data: List[str] = []
+    research_data: List[Any] = []
+    research_status: str = ""
+    research_summary: str = ""
+    research_sources: List[Any] = []
     references: List[str] = []
+    implementation_recommendations: str = ""
+    recommended_technologies: List[str] = []
+    security_considerations: List[str] = []
+    performance_considerations: List[str] = []
+    architecture_suggestions: List[str] = []
 
     # CODE GENERATION
 
     project_name: str = ""
     generated_files: Dict[str, str] = {}
-
-    # Example:
-    # {
-    #   "app.py": "...",
-    #   "requirements.txt": "..."
-    # }
-
+    coding_status: str = ""
+    coding_explanation: str = ""
 
     # EXECUTION
 
     execution_logs: str = ""
     execution_success: bool = False
     execution_output: str = ""
+    execution_status: str = ""
+    execution_time: float = 0.0
 
     # ERROR HANDLING
 
@@ -46,9 +51,13 @@ class AgentState(MessagesState):
 
     # CRITIC / REVIEW
 
+    review_status: str = ""
     critic_feedback: str = ""
+    critic_summary: str = ""
     quality_score: float = 0.0
+    review_issues: List[Any] = []
     security_issues: List[str] = []
+    improvement_suggestions: List[str] = []
 
     # HUMAN-IN-THE-LOOP
 
@@ -59,7 +68,10 @@ class AgentState(MessagesState):
     # MEMORY
 
     memory_context: List[str] = []
+    memory_type: str = ""
+    memory_stats: Dict[str, Any] = {}
     previous_attempts: List[Dict[str, Any]] = []
+    similar_failures: List[Any] = []
 
     # WORKFLOW CONTROL
 
@@ -70,4 +82,3 @@ class AgentState(MessagesState):
     # OBSERVABILITY
 
     token_usage: int = 0
-    execution_time: float = 0.0
