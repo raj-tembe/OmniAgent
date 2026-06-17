@@ -28,8 +28,8 @@ def planner_agent(state: AgentState) -> Dict:
         messages[-1].content if messages else "No request provided."
     )
 
-    plan = bool(state.get("plan", []))
-    completed_steps = bool(state.get("completed_steps", []))
+    plan = state.get("plan", [])
+    completed_steps = state.get("completed_steps", [])
     retry_count = state.get("retry_count", 0)
     execution_success = state.get("execution_success", False)
     critic_feedback = state.get("critic_feedback", "")
