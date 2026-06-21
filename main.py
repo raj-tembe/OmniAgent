@@ -121,13 +121,16 @@ def display_results(result: dict) -> None:
             print(f"  {i}. {step}")
 
     # Display generated code
-    if result.get('code'):
-        print(f"\nGenerated Code ({len(result['code'])} chars):")
+    if result.get('generated_files'):
+        files = result['generated_files']
+        print(f"\nGenerated Files ({len(files)} files):")
         print("-" * 40)
-        print(result['code'][:500])
-        if len(result['code']) > 500:
-            print(f"... ({len(result['code']) - 500} more characters)")
+        for filename, content in files.items():
+            print(f"  [{filename}] — {len(content)} chars")
         print("-" * 40)
+        project_name = result.get('project_name', 'unknown')
+        from config import GENERATED_PROJECT_DIR
+        print(f"\nProject saved to: {GENERATED_PROJECT_DIR}/{project_name}/")
 
     # Display security issues
     if result.get('security_issues'):
