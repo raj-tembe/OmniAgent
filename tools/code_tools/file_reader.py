@@ -1,8 +1,37 @@
 import os
+from pathlib import Path
 from typing import Dict, List
+
+from config import GENERATED_PROJECT_DIR, PROJECT_ROOT
 
 
 # file reader tool
+
+DENIED_FILENAMES = {
+    ".env",
+    ".env.local",
+    "id_rsa",
+    "id_dsa",
+    "id_ecdsa",
+    "id_ed25519",
+}
+
+
+def _resolve_allowed_path(path: str) -> Path:
+    target = Path(path).expanduser().resolve()
+    allowed_roots = [
+        Path(PROJECT_ROOT).resolve(),
+        Path(GENERATED_PROJECT_DIR).resolve(),
+    ]
+
+    if not any(target == root or target.is_relative_to(root) for root in allowed_roots):
+        raise ValueError(f"Refusing to read outside allowed roots: {path}")
+
+    if target.name in DENIED_FILENAMES:
+        raise ValueError(f"Refusing to read sensitive file: {path}")
+
+    return target
+
 
 class FileReaderTool:
     """
@@ -26,9 +55,10 @@ class FileReaderTool:
         """
 
         try:
+            safe_path = _resolve_allowed_path(filepath)
 
             with open(
-                filepath,
+                safe_path,
                 "r",
                 encoding="utf-8"
             ) as f:
@@ -39,7 +69,7 @@ class FileReaderTool:
 
                 "success": True,
 
-                "filepath": filepath,
+                "filepath": str(safe_path),
 
                 "content": content
             }
@@ -90,12 +120,14 @@ class FileReaderTool:
         """
 
         try:
+            safe_directory = _resolve_allowed_path(directory)
 
             all_files = []
 
-            for root, _, files in os.walk(
-                directory
+            for root, dirs, files in os.walk(
+                safe_directory
             ):
+                dirs[:] = [directory for directory in dirs if not directory.startswith(".")]
 
                 for file in files:
 
@@ -104,7 +136,8 @@ class FileReaderTool:
                         file
                     )
 
-                    all_files.append(full_path)
+                    if Path(full_path).name not in DENIED_FILENAMES:
+                        all_files.append(full_path)
 
             return {
 
