@@ -34,11 +34,6 @@ def executor_agent(state: AgentState) -> Dict:
         0
     )
 
-    current_step = state.get(
-        "current_step",
-        ""
-    )
-
     #Validate generated files
 
     if not generated_files:
@@ -81,7 +76,7 @@ def executor_agent(state: AgentState) -> Dict:
     # For web servers that validate successfully, consider it a success
     # (validation passes = syntax OK + dependencies OK)
     execution_success = execution_result.execution_success
-    if is_web_server and execution_result.execution_status == "completed":
+    if is_web_server and execution_result.execution_status == "success":
         execution_success = True
 
     if execution_success:

@@ -1,29 +1,56 @@
 import subprocess
 import time
-from typing import Dict
+import shlex
+import os
+from pathlib import Path
+from typing import List, Union
 from schemas.execution_schema import ExecutionResult
+
+
+Command = Union[str, List[str]]
+
+
+def _normalize_command(command: Command) -> List[str]:
+    if isinstance(command, str):
+        return shlex.split(command)
+    return command
+
 
 def run_in_docker(
         project_path: str,
-        command: str = "python app.py",
+        command: Command = "python app.py",
         timeout: int = 60,
 ) -> ExecutionResult:
     """
     executes generated prject in side docker container."""
 
     start_time = time.time()
+    resolved_project_path = str(Path(project_path).resolve())
+    command_args = _normalize_command(command)
     docker_command = [
         "docker",
         "run",
         "--rm",
+        "--network",
+        "none",
+        "--user",
+        f"{os.getuid()}:{os.getgid()}",
+        "--memory",
+        "256m",
+        "--cpus",
+        "1",
+        "--pids-limit",
+        "128",
+        "--cap-drop",
+        "ALL",
+        "--security-opt",
+        "no-new-privileges",
         "-v",
-        f"{project_path}:/app",
+        f"{resolved_project_path}:/app:rw",
         "-w",
         "/app",
         "python:3.11",
-        "sh",
-        "-c",
-        command
+        *command_args
     ]
     
     try:
@@ -52,7 +79,7 @@ def run_in_docker(
                 result.stderr if not success else None
                 ),
 
-            executed_command=command,
+            executed_command=" ".join(command_args),
 
             execution_time=execution_time,
 
@@ -68,7 +95,7 @@ def run_in_docker(
             stdout="",
             stderr="Execution timed out.",
             error_message="Execution exceeded the timeout limit.",
-            executed_command=command,
+            executed_command=" ".join(command_args),
             execution_time=timeout,
             next_agent="coder"
         )
@@ -81,7 +108,7 @@ def run_in_docker(
             stdout="",
             stderr=str(e),
             error_message=str(e),
-            executed_command=command,
+            executed_command=" ".join(command_args),
             execution_time=time.time() - start_time,
             next_agent="human"
         )
