@@ -1,5 +1,8 @@
 import subprocess
-from typing import Dict, Optional
+import shlex
+import os
+from pathlib import Path
+from typing import Dict, List, Optional, Union
 
 
 # docker executer 
@@ -36,9 +39,23 @@ class DockerExecutor:
                 "run",
 
                 "--rm",
+                "--network",
+                "none",
+                "--user",
+                f"{os.getuid()}:{os.getgid()}",
+                "--memory",
+                "256m",
+                "--cpus",
+                "1",
+                "--pids-limit",
+                "128",
+                "--cap-drop",
+                "ALL",
+                "--security-opt",
+                "no-new-privileges",
 
                 "-v",
-                f"{working_directory}:/app",
+                f"{Path(working_directory).resolve()}:/app:rw",
 
                 "-w",
                 "/app",
@@ -106,7 +123,7 @@ class DockerExecutor:
 
     @staticmethod
     def run_command(
-        command: str,
+        command: Union[str, List[str]],
         working_directory: str,
         timeout: int = 60
     ) -> Dict:
@@ -115,6 +132,7 @@ class DockerExecutor:
         """
 
         try:
+            command_args = shlex.split(command) if isinstance(command, str) else command
 
             docker_command = [
 
@@ -122,18 +140,30 @@ class DockerExecutor:
                 "run",
 
                 "--rm",
+                "--network",
+                "none",
+                "--user",
+                f"{os.getuid()}:{os.getgid()}",
+                "--memory",
+                "256m",
+                "--cpus",
+                "1",
+                "--pids-limit",
+                "128",
+                "--cap-drop",
+                "ALL",
+                "--security-opt",
+                "no-new-privileges",
 
                 "-v",
-                f"{working_directory}:/app",
+                f"{Path(working_directory).resolve()}:/app:rw",
 
                 "-w",
                 "/app",
 
                 "python:3.11-slim",
 
-                "sh",
-                "-c",
-                command
+                *command_args
             ]
 
             result = subprocess.run(
