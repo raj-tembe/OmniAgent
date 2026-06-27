@@ -30,6 +30,7 @@ class TestExecutorAgent(unittest.TestCase):
             executed_command="python app.py",
             generated_output_files=[],
             execution_time=0.5,
+            next_agent="critic",
         )
 
         with patch(
@@ -53,6 +54,7 @@ class TestExecutorAgent(unittest.TestCase):
             executed_command="python app.py",
             generated_output_files=[],
             execution_time=0.1,
+            next_agent="coder",
         )
 
         with patch(
@@ -69,3 +71,29 @@ class TestExecutorAgent(unittest.TestCase):
         self.assertFalse(second["execution_success"])
         self.assertEqual(second["next_agent"], "critic")
         self.assertEqual(second["retry_count"], 4)
+
+    def test_web_validation_success_routes_to_critic(self):
+        execution_result = ExecutionResult(
+            execution_status="success",
+            execution_success=True,
+            stdout="Web application validation passed",
+            stderr="",
+            error_message=None,
+            executed_command="python _validate.py",
+            generated_output_files=[],
+            execution_time=0.2,
+            next_agent="critic",
+        )
+
+        with patch(
+            "agents.executor.executor_agent.execute_generated_project",
+            return_value=execution_result,
+        ):
+            result = executor_agent({
+                "generated_files": {"app.py": "from flask import Flask\napp = Flask(__name__)"},
+                "retry_count": 0,
+            })
+
+        self.assertTrue(result["execution_success"])
+        self.assertEqual(result["next_agent"], "critic")
+        self.assertEqual(result["retry_count"], 0)
