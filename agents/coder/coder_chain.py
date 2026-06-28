@@ -143,7 +143,6 @@ NEXT AGENT OPTIONS
 
 - executor
 - critic
-- human
 
 ==================================================
 IMPORTANT

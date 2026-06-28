@@ -19,8 +19,7 @@ CodingStatus = Literal[
 
 NextAgent = Literal[
     "executor",
-    "critic",
-    "human"
+    "critic"
 ]
 
 

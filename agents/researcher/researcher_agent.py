@@ -227,4 +227,5 @@ def researcher_agent(state: AgentState) -> Dict:
 
         # Workflow
         "next_agent": next_agent,
+        "current_agent": "researcher",
     }

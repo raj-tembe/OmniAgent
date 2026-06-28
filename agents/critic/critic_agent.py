@@ -187,6 +187,7 @@ def critic_agent(state: AgentState) -> Dict:
 
         # Workflow
         "next_agent": next_agent,
+        "current_agent": "critic",
 
         # Reset retry count on approval so future workflow phases start fresh
         "retry_count": 0 if review_status == "approved" else state.get("retry_count", 0),
