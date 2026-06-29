@@ -42,6 +42,7 @@ def route_workflow(state):
         logging.getLogger(__name__).warning(
             "Unexpected transition from '%s' to '%s'", current_agent, next_agent
         )
+        return END
 
     return next_agent
 

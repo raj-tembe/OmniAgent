@@ -91,4 +91,13 @@ def register_conditional_edges(
         CONDITIONAL_EDGE_MAP
     )
 
+    workflow.add_conditional_edges(
+
+        "human",
+
+        route_workflow,
+
+        CONDITIONAL_EDGE_MAP
+    )
+
     return workflow
