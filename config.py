@@ -4,8 +4,16 @@ All hardcoded constants live here. Import from this module everywhere.
 """
 import os
 from pathlib import Path
-from platformdirs import user_data_dir
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    def load_dotenv():
+        return False
+
+try:
+    from platformdirs import user_data_dir
+except ImportError:
+    user_data_dir = None
 
 load_dotenv()
 
@@ -16,9 +24,15 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 #   Linux:   ~/.local/share/omniagent
 #   macOS:   ~/Library/Application Support/omniagent
 #   Windows: C:\Users\<you>\AppData\Local\omniagent\omniagent
+def _default_user_data_dir() -> str:
+    if user_data_dir is not None:
+        return user_data_dir("omniagent", "omniagent")
+    return str(Path.home() / ".local" / "share" / "omniagent")
+
+
 USER_DATA_DIR = Path(
-    os.getenv("OMNIAGENT_DATA_DIR") or user_data_dir("omniagent", "omniagent")
-)
+    os.getenv("OMNIAGENT_DATA_DIR") or _default_user_data_dir()
+).expanduser().resolve()
 
 # Paths
 GENERATED_PROJECT_DIR = USER_DATA_DIR / "projects" 
@@ -56,7 +70,7 @@ OLLAMA_BASE_URL   = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 HF_MODEL          = os.getenv("HF_MODEL", "mistralai/Mistral-7B-Instruct-v0.1")
 HF_API_KEY        = os.getenv("HF_API_KEY", "")
 HF_DEVICE         = os.getenv("HF_DEVICE", "cpu")  # "cpu" or "cuda"
-HF_LOCAL_REPO     = os.getenv("HF_LOCAL_REPO", str(USER_DATA_DIR / "hf_models"))
+HF_LOCAL_REPO     = str(Path(os.getenv("HF_LOCAL_REPO", str(USER_DATA_DIR / "hf_models"))).expanduser())
 
 # Workflow limits
 MAX_RETRIES       = 5
