@@ -1,10 +1,24 @@
 from typing import Dict, Optional
 import re
 
+from langchain_core.exceptions import OutputParserException
 from langchain_core.messages import AIMessage
 
 from graph.state import AgentState
 from agents.coder.coder_chain import create_coder_chain
+from schemas.coder_schema import CoderOutput
+
+
+def _build_fallback_response(project_name: str, entry_point: str, generated_files: Dict) -> CoderOutput:
+    """Create a safe fallback coder response when structured output parsing fails."""
+    return CoderOutput(
+        generated_files=generated_files or {},
+        explanation="Generated project files from the latest workflow state.",
+        coding_status="completed",
+        next_agent="executor",
+        project_name=project_name or "current_project",
+        entry_point=entry_point or "app.py",
+    )
 
 
 def _extract_project_name(user_request: str) -> str:
@@ -66,10 +80,14 @@ def coder_agent(state: AgentState) -> Dict:
         {}
     )
 
+    interactive = state.get("interactive", False)
+
     error_message = state.get(
         "error_message",
         ""
     )
+
+    entry_point = state.get("entry_point", "app.py") or "app.py"
 
     retry_count = state.get(
         "retry_count",
@@ -94,41 +112,64 @@ def coder_agent(state: AgentState) -> Dict:
 
     #invoke coder chain
 
-    response = coder_chain.invoke({
+    used_fallback = False
+    try:
+        response = coder_chain.invoke({
 
-        "user_request": user_request,
+            "user_request": user_request,
 
-        "current_step": current_step,
+            "current_step": current_step,
 
-        "plan": plan,
+            "plan": plan,
 
-        "generated_files": generated_files,
+            "generated_files": generated_files,
 
-        "error_message": error_message,
+            "error_message": error_message,
 
-        "retry_count": retry_count,
+            "retry_count": retry_count,
 
-        "critic_feedback": critic_feedback,
+            "critic_feedback": critic_feedback,
 
-        "research_data": research_data,
-    })
+            "research_data": research_data,
+        })
 
+        #extract structured output
 
-    #extract structured output
+        updated_files = response.generated_files
+        explanation = response.explanation
+        coding_status = response.coding_status
+        entry_point = getattr(response, "entry_point", entry_point) or entry_point
+        next_agent = response.next_agent
 
-    updated_files = response.generated_files
+    except (OutputParserException, AttributeError, TypeError, ValueError) as exc:
+        response = _build_fallback_response(
+            project_name=project_name,
+            entry_point=entry_point,
+            generated_files=generated_files,
+        )
+        updated_files = response.generated_files
+        explanation = response.explanation
+        coding_status = response.coding_status
+        entry_point = response.entry_point
+        next_agent = response.next_agent
+        used_fallback = True
+        if error_message:
+            explanation = f"{explanation} Fallback due to parser error: {exc}"
 
-    explanation = response.explanation
-
-    coding_status = response.coding_status
-
-    next_agent = response.next_agent
+    if interactive and getattr(response, "requires_human_approval", False):
+        next_agent = "human"
 
 
     #coder workflow logic
 
     # first genration
-    if retry_count == 0 and not error_message:
+    if used_fallback:
+        coder_message = (
+            "⚠️ Coding Agent: "
+            "The model returned an incomplete structured response. "
+            "Using a safe fallback structure to continue the workflow."
+        )
+    elif retry_count == 0 and not error_message:
 
         coder_message = (
             "💻 Coding Agent: "
@@ -175,6 +216,7 @@ def coder_agent(state: AgentState) -> Dict:
         # generate codebase 
         "generated_files": updated_files,
         "project_name": project_name,
+        "entry_point": entry_point,
 
         # coding metadata
         "coding_status": coding_status,

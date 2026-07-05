@@ -66,6 +66,11 @@ IMPORTANT RULES
 8. Handle runtime errors carefully
 9. Generate minimal but functional implementations
 10. Return ONLY structured output
+11. YOU MUST INCLUDE EVERY REQUIRED FIELD IN THE RESPONSE
+12. DO NOT OMIT explanation, coding_status, next_agent, entry_point, or generated_files
+13. If a field is not applicable, still provide a safe default value rather than omitting it
+14. generated_files must be a dictionary mapping filenames to full file contents
+15. If you are unsure, return a conservative working implementation instead of an empty response
 
 ==================================================
 CURRENT WORKFLOW STATE
@@ -113,19 +118,34 @@ Then:
 OUTPUT REQUIREMENTS
 ==================================================
 
-You MUST return:
+You MUST return ALL of the following fields and they must be present in every response:
 
 1. generated_files
    - dictionary of filename → file content
+   - must not be empty unless the task is impossible
 
 2. explanation
    - short explanation of changes
+   - never omit this field
 
 3. coding_status
-   - current coding phase
+   - one of: generating, updating, fixing, improving, completed, failed
+   - never omit this field
 
 4. next_agent
-   - usually "executor"
+   - one of: executor, critic, human
+   - never omit this field
+
+5. entry_point
+   - the file that should be executed to start the project, for example "app.py" or "main.py"
+   - never omit this field
+
+6. project_name
+   - a valid project name string
+   - never omit this field
+
+Before responding, verify that every required field exists and is non-empty.
+If any field is missing in your draft, fill it with a safe default before finalizing.
 
 ==================================================
 CODING STATUS OPTIONS

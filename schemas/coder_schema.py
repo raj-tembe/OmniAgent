@@ -19,7 +19,8 @@ CodingStatus = Literal[
 
 NextAgent = Literal[
     "executor",
-    "critic"
+    "critic",
+    "human"
 ]
 
 
@@ -99,6 +100,12 @@ class CoderOutput(BaseModel):
         default="current_project",
         description="Name of the project being generated.",
         examples=["my_api", "calculator_app", "todo_list"]
+    )
+
+    entry_point: str = Field(
+        default="app.py",
+        description="The file to run to start or execute the project.",
+        examples=["app.py", "main.py", "src/main.py"]
     )
 
     file_manifest: Optional[List[GeneratedFile]] = Field(
