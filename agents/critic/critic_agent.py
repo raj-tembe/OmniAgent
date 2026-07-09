@@ -38,6 +38,8 @@ def critic_agent(state: AgentState) -> Dict:
         {}
     )
 
+    interactive = state.get("interactive", False)
+
     execution_success = state.get(
         "execution_success",
         False
@@ -102,6 +104,9 @@ def critic_agent(state: AgentState) -> Dict:
     feedback = response.feedback
 
     next_agent = response.next_agent
+
+    if interactive and getattr(response, "requires_human_approval", False):
+        next_agent = "human"
 
     issues = response.issues or []
 

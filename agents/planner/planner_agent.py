@@ -1,31 +1,23 @@
-"""Purpose
-Core planner logic.
+"""Core planner logic."""
 
-Responsibility
-analyze user goal
-break tasks
-prioritize execution steps"""
+import logging
+from typing import Dict
 
-from typing import Dict, List
 from langchain_core.messages import AIMessage
-from graph.state import AgentState
+
 from agents.planner.planner_chain import create_planner_chain
+from graph.state import AgentState
+
+logger = logging.getLogger(__name__)
+
 
 def planner_agent(state: AgentState) -> Dict:
-    """
-    Planner Agent
+    """Plan the next workflow step and route to the appropriate agent."""
 
-    Responsibilities:
-    - Understand user goal
-    - Break task into actionable steps
-    - Decide current workflow phase
-    - Route execution to next agent
-    """
-        
     messages = state.get("messages", [])
     user_request = state.get(
         "user_request",
-        messages[-1].content if messages else "No request provided."
+        messages[-1].content if messages else "No request provided.",
     )
 
     plan = state.get("plan", [])
@@ -35,10 +27,8 @@ def planner_agent(state: AgentState) -> Dict:
     critic_feedback = state.get("critic_feedback", "")
     error_message = state.get("error_message", "")
 
-    # Planner Chain
     planner_chain = create_planner_chain()
 
-    # Generate Plan
     response = planner_chain.invoke({
         "user_request": user_request,
         "existing_plan": plan,
@@ -49,71 +39,59 @@ def planner_agent(state: AgentState) -> Dict:
         "error_message": error_message,
     })
 
-    # extract structured planner output
     plan = response.tasks
     current_step = response.current_step
     workflow_status = response.workflow_status
     next_agent = response.next_agent
 
-    # routing logic based on workflow status
+    if getattr(response, "reasoning", None):
+        logger.info("Planner reasoning: %s", response.reasoning)
+
+    if getattr(response, "recovery_strategy", None):
+        logger.info("Planner recovery strategy: %s", response.recovery_strategy)
+
+    should_request_human = state.get("interactive", False) and bool(
+        getattr(response, "require_human_approval", False)
+    )
+
     if workflow_status == "completed":
-
         next_agent = "end"
-
         planner_message = (
-            "Planner Agent: "
-            "Workflow planning and execution completed successfully."
+            "Planner Agent: Workflow planning and execution completed successfully."
         )
-
-    #execution failed multiple times, route to critic for review
+    elif should_request_human:
+        next_agent = "human"
+        planner_message = (
+            "Planner Agent: Human approval requested before continuing the workflow."
+        )
+    elif workflow_status == "researching" or next_agent == "researcher":
+        next_agent = "researcher"
+        planner_message = (
+            "Planner Agent: Research phase required before implementation."
+        )
     elif retry_count >= 3:
-        
         next_agent = "critic"
-
         planner_message = (
-            "Planner Agent: "
-            "Execution failed multiple times. "
-            "Escalating workflow to Critic Agent for anlysis."
+            "Planner Agent: Execution failed multiple times. Escalating workflow to Critic Agent for analysis."
         )
-
-    # normal coding flow, route to coder
     elif not execution_success:
-
         next_agent = "coder"
-
         planner_message = (
-            f"Planner Agent: "
-            f"Current Task: {current_step}"
-            f"Routing to Coder Agent for implementation."
+            f"Planner Agent: Current Task: {current_step} Routing to Coder Agent for implementation."
         )
-
-    # execution succeeded
     else:
-
         next_agent = "critic"
-
         planner_message = (
-            f"Planner Agent: "
-            f"Task '{current_step}' completed successfully. "
-            f"Sending generated solution to Critic Agent for evaluation."
+            f"Planner Agent: Task '{current_step}' completed successfully. Sending generated solution to Critic Agent for evaluation."
         )
 
-    # return updated state
     return {
-
-        #conversation history
         "messages": messages + [AIMessage(content=planner_message)],
-
-        #planner output
         "plan": plan,
         "current_step": current_step,
-
-        #workflow
         "workflow_status": workflow_status,
         "next_agent": next_agent,
         "current_agent": "planner",
-
-        #user goal
         "user_request": user_request,
     }
            
