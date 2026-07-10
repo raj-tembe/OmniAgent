@@ -29,6 +29,8 @@ def executor_agent(state: AgentState) -> Dict:
         "current_project"
     )
 
+    entry_point = state.get("entry_point", "app.py") or "app.py"
+
     retry_count = state.get(
         "retry_count",
         0
@@ -64,7 +66,8 @@ def executor_agent(state: AgentState) -> Dict:
     # Execute generated project
     execution_result = execute_generated_project(
         generated_files=generated_files,
-        project_name=project_name
+        project_name=project_name,
+        entry_point=entry_point,
     )
 
     # Detect if this is a web server app

@@ -60,7 +60,8 @@ def save_generated_files(
 def execute_generated_project(
         generated_files: Dict[str, str],
         project_name: str = "current_project",
-        command: str = None
+        command: str = None,
+        entry_point: str = "app.py"
 ) -> ExecutionResult:
     
     """
@@ -132,7 +133,8 @@ sys.exit(0)
             
             command = "python _validate.py"
         else:
-            command = "python app.py"
+            resolved_entry_point = (entry_point or "app.py").strip() or "app.py"
+            command = f"python {resolved_entry_point}"
 
     result = run_in_docker(
         project_path=project_path, 
