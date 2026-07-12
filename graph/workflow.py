@@ -23,18 +23,42 @@ from observability.monitoring import system_monitor
 class OmniAgentCallbacks:
     """LangGraph callbacks for metrics and monitoring."""
 
+    raise_error = False
+    ignore_chain = False
+    ignore_agent = False
+    ignore_llm = False
+    ignore_chat_model = False
+
     def on_chain_start(self, serialized, inputs, **kwargs):
-        self._start = time.time()
-        agent = serialized.get("name", "unknown")
-        system_monitor.info(agent, f"Agent started: {agent}")
-        metrics_tracker.record_agent_execution(agent)
+        try:
+            self._start = time.time()
+            agent = (serialized or {}).get("name", "unknown") if isinstance(serialized, dict) else "unknown"
+            system_monitor.info(agent, f"Agent started: {agent}")
+            metrics_tracker.record_agent_execution(agent)
+        except Exception:
+            return None
 
     def on_chain_end(self, outputs, **kwargs):
-        elapsed = time.time() - getattr(self, "_start", time.time())
-        system_monitor.info("workflow", f"Step completed in {elapsed:.2f}s")
+        try:
+            elapsed = time.time() - getattr(self, "_start", time.time())
+            system_monitor.info("workflow", f"Step completed in {elapsed:.2f}s")
+        except Exception:
+            return None
 
     def on_chain_error(self, error, **kwargs):
-        system_monitor.error("workflow", str(error))
+        try:
+            system_monitor.error("workflow", str(error))
+        except Exception:
+            return None
+
+    def on_chat_model_start(self, serialized, messages, **kwargs):
+        return None
+
+    def on_llm_end(self, response, **kwargs):
+        return None
+
+    def on_llm_error(self, error, **kwargs):
+        return None
 
 
 # Initialize checkpoint manager
