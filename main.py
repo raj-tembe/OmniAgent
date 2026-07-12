@@ -12,7 +12,7 @@ import logging
 import uuid
 from typing import Optional
 
-from graph.workflow import omniagent_graph
+from graph.workflow import OmniAgentCallbacks, omniagent_graph
 
 
 # configure logging
@@ -61,6 +61,7 @@ def run_workflow(
             "quality_score": 0.0,
             "memory_context": [],
             "security_issues": [],
+            "entry_point": "app.py",
         }
 
         # Generate unique thread ID for checkpointing
@@ -70,7 +71,8 @@ def run_workflow(
         config = {
             "configurable": {
                 "thread_id": thread_id
-            }
+            },
+            "callbacks": [OmniAgentCallbacks()],
         }
 
         # Execute workflow

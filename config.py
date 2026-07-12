@@ -59,7 +59,7 @@ OPENAI_MODEL      = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 OPENAI_API_KEY    = os.getenv("OPENAI_API_KEY", "")
 
 # Groq
-GROQ_MODEL        = os.getenv("GROQ_MODEL", "mixtral-8x7b-32768")
+GROQ_MODEL        = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 GROQ_API_KEY      = os.getenv("GROQ_API_KEY", "")
 
 # Ollama (local inference)
