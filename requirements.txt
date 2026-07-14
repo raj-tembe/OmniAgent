@@ -7,10 +7,20 @@ langchain-google-genai>=2.0.0
 google-generativeai>=0.8.0
 
 # LLM Providers - Optional (install as needed)
+# pip install langchain-openai
 langchain-openai>=0.1.0
+# pip install langchain-groq
 langchain-groq>=0.1.0
+# pip install langchain-ollama
 langchain-ollama>=0.1.0
+# pip install langchain-huggingface
 langchain-huggingface>=0.0.1
+
+# Checkpoint backends - Optional (install as needed)
+# pip install langgraph-checkpoint-sqlite
+langgraph-checkpoint-sqlite>=3.1.0
+# pip install langgraph-checkpoint-postgres
+langgraph-checkpoint-postgres>=3.1.0
 
 # HuggingFace utilities (optional, for local inference)
 transformers>=4.30.0

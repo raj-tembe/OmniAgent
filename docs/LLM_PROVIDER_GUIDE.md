@@ -75,7 +75,7 @@ Best for: Lightning-fast inference, free tier available
 ```bash
 # Get API key from: https://console.groq.com/keys
 export GROQ_API_KEY=your_key_here
-export GROQ_MODEL=mixtral-8x7b-32768
+export GROQ_MODEL=llama-3.3-70b-versatile
 export LLM_PROVIDER=groq
 ```
 
@@ -85,7 +85,7 @@ pip install langchain-groq
 ```
 
 **Supported models:**
-- `mixtral-8x7b-32768` - Fast multimodal
+- `llama-3.3-70b-versatile` - High-quality general purpose model
 - `llama2-70b-4096` - Open source LLaMA 2
 - `llama-3-8b-8192` - Smaller LLaMA 3 variant
 

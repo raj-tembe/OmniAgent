@@ -149,7 +149,7 @@ OPENAI_MODEL=gpt-4o-mini
 
 # Groq
 GROQ_API_KEY=your_key
-GROQ_MODEL=mixtral-8x7b-32768
+GROQ_MODEL=llama-3.3-70b-versatile
 
 # Ollama (Local)
 OLLAMA_MODEL=mistral

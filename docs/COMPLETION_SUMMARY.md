@@ -240,12 +240,12 @@ This document confirms the successful implementation of all 6 bugs, 9 issues, an
 ### IMPROVEMENT 11: Metrics & Monitoring
 - **Status**: ✅ APPLIED
 - **Location**: `graph/workflow.py`
-- **Implementation**: Integrated OmniAgentCallbacks with LangSmith tracing hooks
+- **Implementation**: Added `OmniAgentCallbacks` hooks and wired them through the workflow config so metrics and monitoring events are emitted during execution
 - **Methods**:
   - on_chain_start: Log workflow start
   - on_chain_end: Log completion with metrics
   - on_chain_error: Log and track errors
-- **Benefit**: Full observability of workflow execution
+- **Benefit**: Basic observability for workflow execution
 
 ### IMPROVEMENT 12: Duplicate File Removal
 - **Status**: ✅ APPLIED
