@@ -169,8 +169,8 @@ The platform remembers:
 
 ```bash
 # Clone repository
-git clone https://github.com/raj-tembe/omniagent.git
-cd omniagent
+git clone https://github.com/raj-tembe/OmniAgent.git
+cd OmniAgent
 
 # Create virtual environment
 python -m venv .venv
@@ -186,26 +186,14 @@ cp .env.example .env
 
 ## Basic Usage
 
-```python
-from main import initialize_agent_system
-
-# Initialize the system
-agent_system = initialize_agent_system()
-
-# Execute a task
-result = agent_system.invoke(
-    user_request="Build a FastAPI authentication service",
-    model="gpt-4"
-)
-
-print(result)
+```bash
+python main.py "Build a FastAPI authentication service" [--interactive] [--verbose]
 ```
 
-## Running the API Server
+## Running the CLI
 
 ```bash
-python api/app.py
-# Server runs on http://localhost:8000
+python main.py "Build a simple hello world script"
 ```
 
 ---
