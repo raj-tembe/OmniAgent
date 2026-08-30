@@ -5,6 +5,9 @@ from graph.state import AgentState
 from agents.executor.sandbox_runner import (
     execute_generated_project
 )
+from config import load_config
+from permission import PermissionEngine
+from tools.agent_tools.todo_tool import TodoTool
 
 def executor_agent(state: AgentState) -> Dict:
     """
@@ -36,6 +39,10 @@ def executor_agent(state: AgentState) -> Dict:
         0
     )
 
+    agent_mode = state.get("agent_mode", "build") or "build"
+    interactive = state.get("interactive", False)
+    session_id = state.get("session_id")
+
     #Validate generated files
 
     if not generated_files:
@@ -61,6 +68,44 @@ def executor_agent(state: AgentState) -> Dict:
 
             "retry_count": retry_count + 1
 
+        }
+
+    # Permission check: writing generated files + running them in the
+    # sandbox are exactly the "write"/"bash"-equivalent actions the
+    # permission engine gates. Plan mode denies both by default; a custom
+    # omniagent.json can loosen this to "ask" or "allow".
+    permission_engine = PermissionEngine(load_config(), mode=agent_mode, interactive=interactive)
+    if state.get("auto_approve"):
+        permission_engine.auto = True
+
+    if not permission_engine.check("write", agent="executor", reason="Save generated project files.", session_id=session_id):
+        return {
+            "messages": [
+                AIMessage(content=(
+                    "Execution Agent: "
+                    f"Blocked — writing generated files is not permitted in '{agent_mode}' mode."
+                ))
+            ],
+            "execution_success": False,
+            "error_message": f"Permission denied: write (mode={agent_mode}).",
+            "next_agent": "end",
+            "current_agent": "executor",
+            "project_name": project_name,
+        }
+
+    if not permission_engine.check("bash", agent="executor", reason="Run generated project in sandbox.", session_id=session_id):
+        return {
+            "messages": [
+                AIMessage(content=(
+                    "Execution Agent: "
+                    f"Blocked — running generated code is not permitted in '{agent_mode}' mode."
+                ))
+            ],
+            "execution_success": False,
+            "error_message": f"Permission denied: bash (mode={agent_mode}).",
+            "next_agent": "end",
+            "current_agent": "executor",
+            "project_name": project_name,
         }
 
     # Execute generated project
@@ -113,6 +158,16 @@ def executor_agent(state: AgentState) -> Dict:
         0 if execution_success else 1
     )
 
+    # Mark the current step's todo item completed once execution actually
+    # succeeds — coder can only mark a step "in_progress" since it doesn't
+    # know whether the step held up; this is where that's confirmed.
+    todos = state.get("todos", [])
+    current_step = state.get("current_step", "")
+    if execution_success and current_step and todos:
+        match = next((t for t in todos if t.get("content") == current_step), None)
+        if match:
+            todos = TodoTool.update_status(todos, match["id"], "completed")
+
     # Return updated state
     return {
         "messages": [
@@ -131,6 +186,9 @@ def executor_agent(state: AgentState) -> Dict:
         ),
         "error_message": execution_result.error_message,
         "execution_time": execution_result.execution_time,
+
+        #visible task list
+        "todos": todos,
 
         #workflow
         "next_agent": next_agent,

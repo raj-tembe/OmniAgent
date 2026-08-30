@@ -74,6 +74,15 @@ class AgentState(MessagesState):
     human_feedback: str
     interactive: bool
 
+    # PERMISSIONS / AGENT MODE
+
+    agent_mode: str  # "build" (default, full access) or "plan" (read-only)
+    auto_approve: bool  # auto-approve "ask" permission rules automatically
+
+    # VISIBLE TASK LIST
+
+    todos: List[Dict]  # TodoTool-managed list, mirrors `plan` but user/IDE-visible with per-item status
+
     # MEMORY
 
     memory_context: List[str]

@@ -6,7 +6,9 @@ from typing import Dict
 from langchain_core.messages import AIMessage
 
 from agents.planner.planner_chain import create_planner_chain
+from agents.subagent import run_subagent
 from graph.state import AgentState
+from skill import format_skill_list
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +39,7 @@ def planner_agent(state: AgentState) -> Dict:
         "execution_success": execution_success,
         "critic_feedback": critic_feedback,
         "error_message": error_message,
+        "available_skills": format_skill_list(),
     })
 
     plan = response.tasks
@@ -71,8 +74,18 @@ def planner_agent(state: AgentState) -> Dict:
         )
     elif retry_count >= 3:
         next_agent = "critic"
+        diagnosis = run_subagent(
+            task=(
+                "The coding workflow has failed repeatedly on the same step. "
+                "Identify the most likely root cause and suggest one concrete "
+                "fix the critic agent should consider."
+            ),
+            context=f"Current step: {current_step}\nLatest error: {error_message}\nCritic feedback so far: {critic_feedback}",
+            session_id=state.get("session_id"),
+        )
         planner_message = (
-            "Planner Agent: Execution failed multiple times. Escalating workflow to Critic Agent for analysis."
+            "Planner Agent: Execution failed multiple times. Escalating workflow to Critic Agent for analysis.\n\n"
+            f"Diagnostic subagent report:\n{diagnosis}"
         )
     elif not execution_success:
         next_agent = "coder"

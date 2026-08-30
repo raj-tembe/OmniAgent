@@ -63,6 +63,17 @@ AVAILABLE AGENTS
    - Workflow completed
 
 ==================================================
+AVAILABLE SKILLS
+==================================================
+
+These are reusable playbooks discovered on disk (SKILL.md files). If one of
+them clearly matches the current step, mention it by name in your reasoning
+so the coder/researcher agent knows to load and follow it. Do not invent
+skills that aren't listed here.
+
+{available_skills}
+
+==================================================
 WORKFLOW RULES
 ==================================================
 

@@ -13,6 +13,7 @@ import uuid
 from typing import Optional
 
 from graph.workflow import OmniAgentCallbacks, omniagent_graph
+from bus import bus, SessionStarted, SessionCompleted, SessionError
 
 
 # configure logging
@@ -30,7 +31,9 @@ logger = logging.getLogger(__name__)
 def run_workflow(
     user_request: str,
     interactive: bool = False,
-    verbose: bool = False
+    verbose: bool = False,
+    agent_mode: str = "build",
+    auto_approve: bool = False,
 ) -> dict:
     """
     Execute OmniAgent workflow for given user request.
@@ -39,6 +42,10 @@ def run_workflow(
         user_request: Task description for autonomous execution
         interactive: Enable human approval nodes if available
         verbose: Enable detailed execution logging
+        agent_mode: "build" (full access) or "plan" (read-only, denies
+            write/bash by default — see permission/modes.py)
+        auto_approve: Auto-approve "ask"
+            permission rules automatically. Explicit "deny" rules still apply.
 
     Returns:
         Workflow execution result with status and generated artifacts
@@ -49,11 +56,19 @@ def run_workflow(
 
     logger.info(f"Starting OmniAgent workflow for: {user_request[:100]}...")
 
+    # Generate unique thread ID for checkpointing / event correlation
+    thread_id = str(uuid.uuid4())
+
+    bus.publish(SessionStarted(user_request=user_request, session_id=thread_id))
+
     try:
         # Initialize workflow input state
         initial_state = {
             "user_request": user_request,
             "interactive": interactive,
+            "session_id": thread_id,
+            "agent_mode": agent_mode,
+            "auto_approve": auto_approve,
             "messages": [],
             "plan": [],
             "code": "",
@@ -64,15 +79,12 @@ def run_workflow(
             "entry_point": "app.py",
         }
 
-        # Generate unique thread ID for checkpointing
-        thread_id = str(uuid.uuid4())
-        
         # Configuration for LangGraph checkpoint saver
         config = {
             "configurable": {
                 "thread_id": thread_id
             },
-            "callbacks": [OmniAgentCallbacks()],
+            "callbacks": [OmniAgentCallbacks(session_id=thread_id)],
         }
 
         # Execute workflow
@@ -85,10 +97,17 @@ def run_workflow(
         if result.get('security_issues'):
             logger.warning(f"Security issues detected: {result['security_issues']}")
 
+        bus.publish(SessionCompleted(
+            execution_success=bool(result.get('execution_success')),
+            quality_score=result.get('quality_score'),
+            session_id=thread_id,
+        ))
+
         return result
 
     except Exception as e:
         logger.error(f"Workflow execution failed: {e}", exc_info=True)
+        bus.publish(SessionError(error_message=str(e), session_id=thread_id))
         return {
             "success": False,
             "error": str(e),
@@ -186,6 +205,28 @@ Examples:
     )
 
     parser.add_argument(
+        '--agent-mode',
+        dest='agent_mode',
+        choices=['build', 'plan'],
+        default='build',
+        help="Agent mode: 'build' (default, full access) or 'plan' (read-only, denies file writes and code execution)"
+    )
+
+    parser.add_argument(
+        '--plan',
+        dest='plan_shorthand',
+        action='store_true',
+        help="Shorthand for --agent-mode plan"
+    )
+
+    parser.add_argument(
+        '--auto',
+        dest='auto_approve',
+        action='store_true',
+        help="Auto-approve 'ask' permission rules (explicit 'deny' rules are still enforced)"
+    )
+
+    parser.add_argument(
         '--verbose',
         action='store_true',
         help='Enable debug-level logging'
@@ -206,10 +247,13 @@ Examples:
 
     try:
         # Run workflow
+        agent_mode = "plan" if args.plan_shorthand else args.agent_mode
         result = run_workflow(
             user_request=user_request,
             interactive=args.interactive,
-            verbose=args.verbose
+            verbose=args.verbose,
+            agent_mode=agent_mode,
+            auto_approve=args.auto_approve,
         )
 
         # Display results

@@ -219,3 +219,6 @@ __marimo__/
 
 #created project dir(temp)
 ~/
+
+# Internal dev notes — not for the tracked repo (see /permission /skill /bus etc. instead)
+.internal/

@@ -7,6 +7,7 @@ from langchain_core.messages import AIMessage
 from graph.state import AgentState
 from agents.coder.coder_chain import create_coder_chain
 from schemas.coder_schema import CoderOutput
+from tools.agent_tools.todo_tool import TodoTool
 
 
 def _build_fallback_response(project_name: str, entry_point: str, generated_files: Dict) -> CoderOutput:
@@ -50,6 +51,26 @@ def _extract_project_name(user_request: str) -> str:
     return project_name or "generated_project"
 
 
+def _sync_todos(plan, current_step: str, existing_todos):
+    """
+    Keep the visible todo list roughly in sync with the plan: initialize it
+    from `plan` the first time it's empty, then mark whichever item matches
+    `current_step` as in-progress. Final "completed" status is set by
+    executor_agent once execution actually succeeds — coder only knows it
+    started working on a step, not whether that step held up.
+    """
+    todos = existing_todos if existing_todos else TodoTool.write(plan or [])
+
+    if not current_step:
+        return todos
+
+    match = next((t for t in todos if t.get("content") == current_step), None)
+    if match and match.get("status") == "pending":
+        todos = TodoTool.update_status(todos, match["id"], "in_progress")
+
+    return todos
+
+
 def coder_agent(state: AgentState) -> Dict:
     """
     Coding Agent
@@ -74,6 +95,8 @@ def coder_agent(state: AgentState) -> Dict:
     current_step = state.get("current_step", "")
 
     plan = state.get("plan", [])
+
+    todos = _sync_todos(plan, current_step, state.get("todos", []))
 
     generated_files = state.get(
         "generated_files",
@@ -221,6 +244,9 @@ def coder_agent(state: AgentState) -> Dict:
         # coding metadata
         "coding_status": coding_status,
         "coding_explanation": explanation,
+
+        # visible task list
+        "todos": todos,
 
         # workflow
         "next_agent": next_agent,
