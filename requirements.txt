@@ -25,6 +25,11 @@ langgraph-checkpoint-postgres>=3.1.0
 # MCP client (local + remote server support)
 mcp>=1.0.0
 
+# LSP client — Python language server (used for critic_agent diagnostics)
+python-lsp-server>=1.11.0
+pyflakes>=3.0.0
+pycodestyle>=2.11.0
+
 # HuggingFace utilities (optional, for local inference)
 transformers>=4.30.0
 torch>=2.0.0

@@ -7,6 +7,39 @@ from graph.state import AgentState
 from agents.critic.critic_chain import (
     create_critic_chain
 )
+from lsp import LspError, get_diagnostics, get_server_command
+
+
+def _collect_lsp_diagnostics(generated_files: Dict[str, str]) -> str:
+    """
+    Run static analysis on every generated file whose extension has a
+    configured language server, and format the results for the critic's
+    prompt. A file with no configured server, or whose server fails to
+    respond, is skipped rather than blocking the review — LSP feedback is
+    a helpful input to the critic's judgment, not a hard gate on it.
+    """
+    from pathlib import Path
+
+    sections = []
+    for filename, content in generated_files.items():
+        suffix = Path(filename).suffix
+        if get_server_command(suffix) is None:
+            continue
+
+        try:
+            diagnostics = get_diagnostics(filename, content=content, timeout=15)
+        except LspError:
+            continue
+
+        if not diagnostics:
+            continue
+
+        lines = [f"{filename}:"]
+        for d in diagnostics:
+            lines.append(f"  [{d['severity']}] line {d['line']}: {d['message']} ({d['source']})")
+        sections.append("\n".join(lines))
+
+    return "\n\n".join(sections) if sections else "(no diagnostics — no supported files, or none reported issues)"
 
 
 def critic_agent(state: AgentState) -> Dict:
@@ -65,6 +98,8 @@ def critic_agent(state: AgentState) -> Dict:
         0
     )
 
+    lsp_diagnostics = _collect_lsp_diagnostics(generated_files)
+
 
     #create chain
 
@@ -90,6 +125,8 @@ def critic_agent(state: AgentState) -> Dict:
         "error_message": error_message,
 
         "retry_count": retry_count,
+
+        "lsp_diagnostics": lsp_diagnostics,
     })
 
 

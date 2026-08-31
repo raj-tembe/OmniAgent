@@ -140,6 +140,9 @@ ERROR MESSAGE:
 RETRY COUNT:
 {retry_count}
 
+LSP DIAGNOSTICS (static analysis of generated files):
+{lsp_diagnostics}
+
 ==================================================
 REVIEW RULES
 ==================================================
