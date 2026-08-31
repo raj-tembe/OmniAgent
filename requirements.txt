@@ -22,6 +22,9 @@ langgraph-checkpoint-sqlite>=3.1.0
 # pip install langgraph-checkpoint-postgres
 langgraph-checkpoint-postgres>=3.1.0
 
+# MCP client (local + remote server support)
+mcp>=1.0.0
+
 # HuggingFace utilities (optional, for local inference)
 transformers>=4.30.0
 torch>=2.0.0
