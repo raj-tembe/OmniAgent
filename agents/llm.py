@@ -64,6 +64,7 @@ from config import (
     OLLAMA_MODEL, OLLAMA_BASE_URL,
     HF_MODEL, HF_DEVICE, HF_LOCAL_REPO,
 )
+from provider.registry import get_initializer, register_provider, registered_providers
 
 
 class LLMInitializationError(Exception):
@@ -71,6 +72,7 @@ class LLMInitializationError(Exception):
     pass
 
 
+@register_provider("gemini")
 def _init_gemini():
     """Initialize Google Gemini LLM."""
     gemini_api_key = os.getenv("GOOGLE_GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
@@ -85,6 +87,7 @@ def _init_gemini():
     )
 
 
+@register_provider("openai")
 def _init_openai():
     """Initialize OpenAI LLM."""
     if not OPENAI_AVAILABLE:
@@ -103,6 +106,7 @@ def _init_openai():
     )
 
 
+@register_provider("groq")
 def _init_groq():
     """Initialize Groq LLM."""
     if not GROQ_AVAILABLE:
@@ -121,6 +125,7 @@ def _init_groq():
     )
 
 
+@register_provider("ollama")
 def _init_ollama():
     """Initialize Ollama LLM (local inference)."""
     if not OLLAMA_AVAILABLE:
@@ -143,6 +148,7 @@ def _init_ollama():
         )
 
 
+@register_provider("huggingface_cloud")
 def _init_huggingface_cloud():
     """Initialize HuggingFace cloud-based LLM (via API)."""
     if not HF_AVAILABLE:
@@ -166,6 +172,7 @@ def _init_huggingface_cloud():
     return ChatHuggingFace(llm=endpoint)
 
 
+@register_provider("huggingface_local")
 def _init_huggingface_local():
     """Initialize HuggingFace local model (requires transformers & torch)."""
     if not HF_AVAILABLE:
@@ -220,22 +227,12 @@ def _get_cached_llm(
     hf_local_repo: str,
     temperature: str,
 ):
-    if provider == "gemini":
-        return _init_gemini()
-    if provider == "openai":
-        return _init_openai()
-    if provider == "groq":
-        return _init_groq()
-    if provider == "ollama":
-        return _init_ollama()
-    if provider == "huggingface_local":
-        return _init_huggingface_local()
-    if provider == "huggingface_cloud":
-        return _init_huggingface_cloud()
-    raise LLMInitializationError(
-        f"Unknown LLM_PROVIDER: {provider}. "
-        f"Supported providers: gemini, openai, groq, ollama, huggingface_local, huggingface_cloud"
-    )
+    if provider not in registered_providers():
+        raise LLMInitializationError(
+            f"Unknown LLM_PROVIDER: {provider}. "
+            f"Supported providers: {', '.join(registered_providers())}"
+        )
+    return get_initializer(provider)()
 
 
 def llm() -> Union[

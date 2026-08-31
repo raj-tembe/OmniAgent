@@ -8,6 +8,7 @@ from langchain_core.messages import AIMessage
 from agents.planner.planner_chain import create_planner_chain
 from agents.subagent import run_subagent
 from graph.state import AgentState
+from session import compact_messages, should_compact
 from skill import format_skill_list
 
 logger = logging.getLogger(__name__)
@@ -17,6 +18,14 @@ def planner_agent(state: AgentState) -> Dict:
     """Plan the next workflow step and route to the appropriate agent."""
 
     messages = state.get("messages", [])
+    if should_compact(messages):
+        pre_compact_count = len(messages)
+        messages = compact_messages(messages, session_id=state.get("session_id"))
+        logger.info(
+            "Compacted session history: %d messages -> %d (summary + recent).",
+            pre_compact_count, len(messages),
+        )
+
     user_request = state.get(
         "user_request",
         messages[-1].content if messages else "No request provided.",
