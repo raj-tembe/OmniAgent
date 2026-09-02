@@ -30,6 +30,10 @@ python-lsp-server>=1.11.0
 pyflakes>=3.0.0
 pycodestyle>=2.11.0
 
+# HTTP server (desktop IDE talks to OmniAgent through this)
+fastapi>=0.110.0
+uvicorn>=0.29.0
+
 # HuggingFace utilities (optional, for local inference)
 transformers>=4.30.0
 torch>=2.0.0

@@ -34,6 +34,7 @@ def run_workflow(
     verbose: bool = False,
     agent_mode: str = "build",
     auto_approve: bool = False,
+    session_id: str = None,
 ) -> dict:
     """
     Execute OmniAgent workflow for given user request.
@@ -46,6 +47,10 @@ def run_workflow(
             write/bash by default — see permission/modes.py)
         auto_approve: Auto-approve "ask"
             permission rules automatically. Explicit "deny" rules still apply.
+        session_id: Correlate this run with a pre-generated id (e.g. one the
+            server layer already handed back to a caller before the run
+            started). Falls back to generating one when not given, same as
+            before.
 
     Returns:
         Workflow execution result with status and generated artifacts
@@ -56,8 +61,9 @@ def run_workflow(
 
     logger.info(f"Starting OmniAgent workflow for: {user_request[:100]}...")
 
-    # Generate unique thread ID for checkpointing / event correlation
-    thread_id = str(uuid.uuid4())
+    # Generate unique thread ID for checkpointing / event correlation,
+    # unless the caller already has one
+    thread_id = session_id or str(uuid.uuid4())
 
     bus.publish(SessionStarted(user_request=user_request, session_id=thread_id))
 
@@ -103,6 +109,7 @@ def run_workflow(
             session_id=thread_id,
         ))
 
+        result["session_id"] = thread_id
         return result
 
     except Exception as e:
@@ -111,7 +118,8 @@ def run_workflow(
         return {
             "success": False,
             "error": str(e),
-            "execution_success": False
+            "execution_success": False,
+            "session_id": thread_id,
         }
 
 
