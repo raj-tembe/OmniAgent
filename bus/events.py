@@ -125,12 +125,14 @@ class PermissionRequested(Event):
     tool: str = Field(..., description="Tool requesting permission.")
     agent: str = Field(..., description="Agent requesting permission.")
     reason: Optional[str] = Field(default=None, description="Why approval is needed.")
+    request_id: Optional[str] = Field(default=None, description="Correlates this request with its eventual PermissionResolved event and, in server mode, with the HTTP response that resolves it.")
 
 
 class PermissionResolved(Event):
     type: Literal["permission.resolved"] = "permission.resolved"
     tool: str = Field(..., description="Tool the decision applies to.")
     decision: Literal["allow", "deny"] = Field(..., description="Resolution of the request.")
+    request_id: Optional[str] = Field(default=None, description="Matches the request_id from the PermissionRequested event this resolves.")
 
 
 #convenience union for type checkers / handler signatures

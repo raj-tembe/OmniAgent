@@ -16,6 +16,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from server.permission_bridge import pending_permissions
 from server.sessions import session_manager
 
 app = FastAPI(title="OmniAgent Server", version="0.1.0")
@@ -36,6 +37,11 @@ class SessionStatusResponse(BaseModel):
     session_id: str
     status: str
     result: Optional[dict] = None
+
+
+class PermissionResponseRequest(BaseModel):
+    request_id: str = Field(..., description="The request_id from the permission.requested event being answered.")
+    approved: bool = Field(..., description="True to allow the tool call, False to deny it.")
 
 
 @app.get("/health")
@@ -61,6 +67,27 @@ def get_session(session_id: str) -> SessionStatusResponse:
         raise HTTPException(status_code=404, detail=f"Unknown session '{session_id}'.")
 
     return SessionStatusResponse(session_id=session_id, status=record.status, result=record.result)
+
+
+@app.post("/sessions/{session_id}/permission-response")
+def respond_to_permission(session_id: str, request: PermissionResponseRequest) -> dict:
+    """
+    Answer a pending "ask" permission request (see permission/engine.py's
+    `resolver` seam and server/permission_bridge.py). `session_id` is only
+    used to give a clear 404 for an unknown session — the actual match is
+    by `request_id`, since that's what `pending_permissions` tracks.
+    """
+    if session_manager.get_session(session_id) is None:
+        raise HTTPException(status_code=404, detail=f"Unknown session '{session_id}'.")
+
+    resolved = pending_permissions.resolve(request.request_id, request.approved)
+    if not resolved:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No pending permission request '{request.request_id}' (already resolved, timed out, or unknown).",
+        )
+
+    return {"resolved": True}
 
 
 @app.get("/sessions/{session_id}/events")

@@ -55,10 +55,13 @@ have anything to talk to.
   distributable build — `main.rs` currently shells out to a system
   `python3`, which only works for local development. A standalone Python
   build (PyInstaller or similar) is a follow-up task.
-- No permission-request UI yet: the Phase 1 permission engine's "ask" tier
-  currently falls back to a terminal `input()` prompt, which doesn't work
-  in a GUI app with no attached terminal. A proper in-app approval dialog,
-  wired through a new server endpoint, is the next piece needed here.
+- Permission-request UI is now wired end to end: the server exposes
+  `POST /sessions/{id}/permission-response`, `permission/engine.py` gained
+  a `resolver` seam that blocks on it instead of a terminal prompt when
+  `server_mode=True`, and the desktop app shows an Allow/Deny dialog for
+  any `permission.requested` event and posts the answer back. Not yet
+  wired into `mcp_client/registry.py`'s tool calls (only
+  `executor_agent.py` constructs a server-aware PermissionEngine so far).
 - No inline diff view, LSP diagnostics display, or editor-native actions
   yet — the current UI is a single session panel with a live event log,
   not a full editor surface.

@@ -78,6 +78,7 @@ class AgentState(MessagesState):
 
     agent_mode: str  # "build" (default, full access) or "plan" (read-only)
     auto_approve: bool  # auto-approve "ask" permission rules automatically
+    server_mode: bool  # True when running under server/sessions.py — routes "ask" permission prompts through the HTTP resolver instead of a terminal prompt
 
     # VISIBLE TASK LIST
 

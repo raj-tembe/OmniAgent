@@ -35,6 +35,7 @@ def run_workflow(
     agent_mode: str = "build",
     auto_approve: bool = False,
     session_id: str = None,
+    server_mode: bool = False,
 ) -> dict:
     """
     Execute OmniAgent workflow for given user request.
@@ -51,6 +52,10 @@ def run_workflow(
             server layer already handed back to a caller before the run
             started). Falls back to generating one when not given, same as
             before.
+        server_mode: True when this run is driven by server/sessions.py.
+            Routes "ask" permission prompts through the HTTP resolver
+            (server/permission_bridge.py) instead of a terminal prompt,
+            since a server process has no attached console to prompt on.
 
     Returns:
         Workflow execution result with status and generated artifacts
@@ -75,6 +80,7 @@ def run_workflow(
             "session_id": thread_id,
             "agent_mode": agent_mode,
             "auto_approve": auto_approve,
+            "server_mode": server_mode,
             "messages": [],
             "plan": [],
             "code": "",

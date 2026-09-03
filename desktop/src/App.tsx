@@ -1,9 +1,16 @@
 import { useCallback, useRef, useState } from "react";
 import type { AgentMode, SessionEvent } from "./api";
-import { createSession, streamSessionEvents } from "./api";
+import { createSession, respondToPermission, streamSessionEvents } from "./api";
 import "./App.css";
 
 type RunStatus = "idle" | "running" | "completed" | "error";
+
+interface PendingPermission {
+  requestId: string;
+  tool: string;
+  agent: string;
+  reason?: string;
+}
 
 function App() {
   const [userRequest, setUserRequest] = useState("");
@@ -12,7 +19,10 @@ function App() {
   const [status, setStatus] = useState<RunStatus>("idle");
   const [events, setEvents] = useState<SessionEvent[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [pendingPermissions, setPendingPermissions] = useState<PendingPermission[]>([]);
   const unsubscribeRef = useRef<(() => void) | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
+  const resolvedRequestIdsRef = useRef<Set<string>>(new Set());
 
   const startSession = useCallback(async () => {
     if (!userRequest.trim() || status === "running") return;
@@ -20,6 +30,8 @@ function App() {
     setStatus("running");
     setEvents([]);
     setErrorMessage(null);
+    setPendingPermissions([]);
+    resolvedRequestIdsRef.current = new Set();
     unsubscribeRef.current?.();
 
     try {
@@ -28,11 +40,36 @@ function App() {
         agent_mode: agentMode,
         auto_approve: autoApprove,
       });
+      sessionIdRef.current = session_id;
 
       unsubscribeRef.current = streamSessionEvents(
         session_id,
         (event) => {
           setEvents((prev) => [...prev, event]);
+
+          if (event.type === "permission.requested" && typeof event.request_id === "string") {
+            const requestId = event.request_id;
+            // auto-approved requests publish requested+resolved back to
+            // back — skip showing a dialog for one that's already settled
+            if (!resolvedRequestIdsRef.current.has(requestId)) {
+              setPendingPermissions((prev) => [
+                ...prev,
+                {
+                  requestId,
+                  tool: String(event.tool ?? "unknown"),
+                  agent: String(event.agent ?? "unknown"),
+                  reason: typeof event.reason === "string" ? event.reason : undefined,
+                },
+              ]);
+            }
+          }
+
+          if (event.type === "permission.resolved" && typeof event.request_id === "string") {
+            const requestId = event.request_id;
+            resolvedRequestIdsRef.current.add(requestId);
+            setPendingPermissions((prev) => prev.filter((p) => p.requestId !== requestId));
+          }
+
           if (event.type === "stream.closed") {
             setStatus(event.status === "error" ? "error" : "completed");
           }
@@ -47,6 +84,21 @@ function App() {
       setErrorMessage(err instanceof Error ? err.message : String(err));
     }
   }, [userRequest, agentMode, autoApprove, status]);
+
+  const answerPermission = useCallback(async (requestId: string, approved: boolean) => {
+    const sessionId = sessionIdRef.current;
+    if (!sessionId) return;
+
+    // remove immediately (optimistic) — the server's own permission.resolved
+    // event will also arrive and is a no-op against an already-removed entry
+    setPendingPermissions((prev) => prev.filter((p) => p.requestId !== requestId));
+
+    try {
+      await respondToPermission(sessionId, requestId, approved);
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : String(err));
+    }
+  }, []);
 
   return (
     <div className="app">
@@ -99,6 +151,23 @@ function App() {
       </section>
 
       {errorMessage && <div className="error-banner">{errorMessage}</div>}
+
+      {pendingPermissions.map((p) => (
+        <div key={p.requestId} className="permission-dialog">
+          <div className="permission-text">
+            <strong>{p.agent}</strong> wants to use <code>{p.tool}</code>
+            {p.reason && <div className="permission-reason">{p.reason}</div>}
+          </div>
+          <div className="permission-actions">
+            <button className="deny-button" onClick={() => answerPermission(p.requestId, false)}>
+              Deny
+            </button>
+            <button className="allow-button" onClick={() => answerPermission(p.requestId, true)}>
+              Allow
+            </button>
+          </div>
+        </div>
+      ))}
 
       <section className="event-log" aria-live="polite">
         {events.length === 0 && status === "idle" && (

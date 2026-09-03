@@ -85,6 +85,7 @@ class SessionManager:
                     agent_mode=agent_mode,
                     auto_approve=auto_approve,
                     session_id=session_id,
+                    server_mode=True,
                 )
                 record.result = result
                 record.status = "error" if result.get("error") else "completed"

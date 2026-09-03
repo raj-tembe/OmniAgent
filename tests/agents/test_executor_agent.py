@@ -212,3 +212,70 @@ class TestExecutorAgent(unittest.TestCase):
 
         updated = next(t for t in result["todos"] if t["content"] == "Build UI")
         self.assertEqual(updated["status"], "in_progress")
+
+    def test_server_mode_ask_rule_resolves_via_server_resolver_not_terminal(self):
+        """
+        With agent_mode="plan" the builtin default for "write"/"bash" is
+        "deny" outright — to exercise the resolver path specifically, use a
+        config that turns "write"/"bash" into "ask" instead, then prove
+        server_mode routes through server.permission_bridge rather than
+        falling back to a denied-by-default non-interactive prompt.
+        """
+        execution_result = ExecutionResult(
+            execution_status="success",
+            execution_success=True,
+            stdout="OK",
+            stderr="",
+            error_message=None,
+            executed_command="python app.py",
+            generated_output_files=[],
+            execution_time=0.1,
+            next_agent="critic",
+        )
+
+        from config.schema import OmniAgentConfig, PermissionConfig
+        ask_config = OmniAgentConfig(permission=PermissionConfig(rules={"write": "ask", "bash": "ask"}))
+
+        with patch("agents.executor.executor_agent.load_config", return_value=ask_config), \
+             patch("server.permission_bridge.make_server_resolver", return_value=lambda *a: True) as mock_make_resolver, \
+             patch(
+                 "agents.executor.executor_agent.execute_generated_project",
+                 return_value=execution_result,
+             ) as mock_execute:
+            result = executor_agent({
+                "generated_files": {"app.py": "print(1)"},
+                "retry_count": 0,
+                "agent_mode": "build",
+                "server_mode": True,
+            })
+
+        mock_make_resolver.assert_called_once()
+        mock_execute.assert_called_once()
+        self.assertTrue(result["execution_success"])
+
+    def test_non_server_mode_does_not_construct_a_resolver(self):
+        execution_result = ExecutionResult(
+            execution_status="success",
+            execution_success=True,
+            stdout="OK",
+            stderr="",
+            error_message=None,
+            executed_command="python app.py",
+            generated_output_files=[],
+            execution_time=0.1,
+            next_agent="critic",
+        )
+
+        with patch("server.permission_bridge.make_server_resolver") as mock_make_resolver, \
+             patch(
+                 "agents.executor.executor_agent.execute_generated_project",
+                 return_value=execution_result,
+             ):
+            executor_agent({
+                "generated_files": {"app.py": "print(1)"},
+                "retry_count": 0,
+                "agent_mode": "build",
+                "server_mode": False,
+            })
+
+        mock_make_resolver.assert_not_called()

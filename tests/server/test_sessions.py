@@ -16,7 +16,7 @@ class TestSessionManager(unittest.TestCase):
         return False
 
     def test_create_session_runs_workflow_in_background_and_completes(self):
-        def fake_run_workflow(user_request, interactive, agent_mode, auto_approve, session_id):
+        def fake_run_workflow(user_request, interactive, agent_mode, auto_approve, session_id, server_mode=False):
             return {"execution_success": True, "session_id": session_id}
 
         manager = SessionManager(run_workflow_fn=fake_run_workflow)
@@ -29,7 +29,7 @@ class TestSessionManager(unittest.TestCase):
     def test_create_session_returns_immediately_without_blocking(self):
         started = time.time()
 
-        def slow_run_workflow(user_request, interactive, agent_mode, auto_approve, session_id):
+        def slow_run_workflow(user_request, interactive, agent_mode, auto_approve, session_id, server_mode=False):
             time.sleep(0.5)
             return {"execution_success": True}
 
@@ -41,7 +41,7 @@ class TestSessionManager(unittest.TestCase):
         self.assertEqual(manager.get_session(session_id).status, "running")
 
     def test_workflow_exception_marks_session_as_error(self):
-        def broken_run_workflow(user_request, interactive, agent_mode, auto_approve, session_id):
+        def broken_run_workflow(user_request, interactive, agent_mode, auto_approve, session_id, server_mode=False):
             raise RuntimeError("something broke")
 
         manager = SessionManager(run_workflow_fn=broken_run_workflow)
@@ -58,7 +58,7 @@ class TestSessionManager(unittest.TestCase):
     def test_events_are_captured_only_for_matching_session_id(self):
         captured_ids = []
 
-        def fake_run_workflow(user_request, interactive, agent_mode, auto_approve, session_id):
+        def fake_run_workflow(user_request, interactive, agent_mode, auto_approve, session_id, server_mode=False):
             # publish an event for THIS session and one for an unrelated session
             bus.publish(AgentStarted(agent="planner", session_id=session_id))
             bus.publish(AgentStarted(agent="planner", session_id="some-other-session"))
@@ -77,7 +77,7 @@ class TestSessionManager(unittest.TestCase):
     def test_events_from_offset_returns_only_new_events(self):
         record_events = []
 
-        def fake_run_workflow(user_request, interactive, agent_mode, auto_approve, session_id):
+        def fake_run_workflow(user_request, interactive, agent_mode, auto_approve, session_id, server_mode=False):
             bus.publish(AgentStarted(agent="planner", session_id=session_id))
             bus.publish(AgentStarted(agent="coder", session_id=session_id))
             return {"execution_success": True}
@@ -94,7 +94,7 @@ class TestSessionManager(unittest.TestCase):
         self.assertEqual(second_batch, [])
 
     def test_bus_subscription_is_removed_after_session_completes(self):
-        def fake_run_workflow(user_request, interactive, agent_mode, auto_approve, session_id):
+        def fake_run_workflow(user_request, interactive, agent_mode, auto_approve, session_id, server_mode=False):
             return {"execution_success": True}
 
         manager = SessionManager(run_workflow_fn=fake_run_workflow)

@@ -18,6 +18,7 @@ defaults to "allow" — a fresh install isn't unexpectedly locked down.
 import fnmatch
 import logging
 import sys
+import uuid
 from typing import Callable, Dict, Optional
 
 from bus import bus, PermissionRequested, PermissionResolved
@@ -99,11 +100,13 @@ class PermissionEngine:
         mode: str = DEFAULT_MODE,
         interactive: bool = False,
         prompt: Callable[[str, str, Optional[str]], bool] = _default_prompt,
+        resolver: Optional[Callable[[str, str, Optional[str], str], bool]] = None,
     ):
         self.config = config
         self.mode = mode
         self.interactive = interactive
         self.prompt = prompt
+        self.resolver = resolver
         self.rules = resolve_rules(config, mode)
         self.auto = resolve_auto(config, mode)
 
@@ -133,16 +136,26 @@ class PermissionEngine:
         if action == "allow":
             return True
 
-        # action == "ask"
+        # action == "ask" — every path below shares one request_id so a
+        # subscriber (a logger, or the desktop app's approval dialog) can
+        # match the eventual PermissionResolved event to the request that
+        # triggered it, even if several are in flight at once.
+        request_id = uuid.uuid4().hex
+
         if self.auto:
             logger.info("Auto-approving 'ask' rule for tool '%s' (mode=%s, --auto)", tool, self.mode)
-            bus.publish(PermissionRequested(tool=tool, agent=agent, reason=reason, session_id=session_id))
-            bus.publish(PermissionResolved(tool=tool, decision="allow", session_id=session_id))
+            bus.publish(PermissionRequested(tool=tool, agent=agent, reason=reason, session_id=session_id, request_id=request_id))
+            bus.publish(PermissionResolved(tool=tool, decision="allow", session_id=session_id, request_id=request_id))
             return True
 
-        bus.publish(PermissionRequested(tool=tool, agent=agent, reason=reason, session_id=session_id))
+        bus.publish(PermissionRequested(tool=tool, agent=agent, reason=reason, session_id=session_id, request_id=request_id))
 
-        if self.interactive and sys.stdin.isatty():
+        if self.resolver is not None:
+            # server/GUI mode: block until an out-of-band resolution
+            # arrives (see server/permission_bridge.py) rather than reading
+            # from a terminal that may not exist for this process at all.
+            approved = self.resolver(tool, agent, reason, request_id)
+        elif self.interactive and sys.stdin.isatty():
             approved = self.prompt(tool, agent, reason)
         else:
             logger.info(
@@ -150,5 +163,5 @@ class PermissionEngine:
             )
             approved = False
 
-        bus.publish(PermissionResolved(tool=tool, decision="allow" if approved else "deny", session_id=session_id))
+        bus.publish(PermissionResolved(tool=tool, decision="allow" if approved else "deny", session_id=session_id, request_id=request_id))
         return approved

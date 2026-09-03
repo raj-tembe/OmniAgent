@@ -9,7 +9,7 @@ from server.app import app
 from server.sessions import SessionManager
 
 
-def _fast_completing_workflow(user_request, interactive, agent_mode, auto_approve, session_id):
+def _fast_completing_workflow(user_request, interactive, agent_mode, auto_approve, session_id, server_mode=False):
     return {"execution_success": True, "quality_score": 8.5, "session_id": session_id}
 
 
@@ -54,7 +54,7 @@ class TestServerEndpoints(unittest.TestCase):
     def test_create_session_passes_through_agent_mode_and_auto_approve(self):
         received_kwargs = {}
 
-        def capturing_workflow(user_request, interactive, agent_mode, auto_approve, session_id):
+        def capturing_workflow(user_request, interactive, agent_mode, auto_approve, session_id, server_mode=False):
             received_kwargs.update(dict(
                 user_request=user_request, interactive=interactive,
                 agent_mode=agent_mode, auto_approve=auto_approve,
@@ -82,7 +82,7 @@ class TestServerEndpoints(unittest.TestCase):
     def test_event_stream_delivers_events_and_closes(self):
         from bus import bus, AgentStarted
 
-        def workflow_with_events(user_request, interactive, agent_mode, auto_approve, session_id):
+        def workflow_with_events(user_request, interactive, agent_mode, auto_approve, session_id, server_mode=False):
             bus.publish(AgentStarted(agent="planner", session_id=session_id))
             bus.publish(AgentStarted(agent="coder", session_id=session_id))
             return {"execution_success": True}
@@ -105,6 +105,50 @@ class TestServerEndpoints(unittest.TestCase):
 
         self.assertIn("agent.started", event_types)
         self.assertEqual(event_types[-1], "stream.closed")
+
+    def test_permission_response_resolves_a_pending_request(self):
+        from server.permission_bridge import PendingPermissionStore
+
+        test_store = PendingPermissionStore()
+        with patch("server.app.pending_permissions", test_store):
+            session_id = self.client.post("/sessions", json={"user_request": "build"}).json()["session_id"]
+
+            # register a pending request the way permission/engine.py would
+            import threading
+            results = []
+
+            def waiter():
+                results.append(test_store.wait_for_resolution("req-1", timeout=2.0))
+
+            t = threading.Thread(target=waiter)
+            t.start()
+            time.sleep(0.05)
+
+            response = self.client.post(
+                f"/sessions/{session_id}/permission-response",
+                json={"request_id": "req-1", "approved": True},
+            )
+            t.join(timeout=2.0)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(results, [True])
+
+    def test_permission_response_for_unknown_session_is_404(self):
+        response = self.client.post(
+            "/sessions/does-not-exist/permission-response",
+            json={"request_id": "req-1", "approved": True},
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_permission_response_for_unknown_request_id_is_404(self):
+        session_id = self.client.post("/sessions", json={"user_request": "build"}).json()["session_id"]
+
+        response = self.client.post(
+            f"/sessions/{session_id}/permission-response",
+            json={"request_id": "never-registered", "approved": True},
+        )
+
+        self.assertEqual(response.status_code, 404)
 
 
 if __name__ == "__main__":

@@ -120,6 +120,78 @@ class TestPermissionEngineCheck(unittest.TestCase):
         self.assertFalse(engine.check("bash", agent="executor"))
 
 
+class TestPermissionEngineResolver(unittest.TestCase):
+    """The seam server/permission_bridge.py plugs into."""
+
+    def setUp(self):
+        self.test_bus = EventBus()
+        self.patcher = patch.object(engine_module, "bus", self.test_bus)
+        self.patcher.start()
+        self.received = []
+        self.test_bus.subscribe(WILDCARD, lambda e: self.received.append(e))
+
+    def tearDown(self):
+        self.patcher.stop()
+
+    def test_resolver_is_used_for_ask_rules_even_without_interactive_tty(self):
+        cfg = OmniAgentConfig(permission=PermissionConfig(rules={"bash": "ask"}))
+        resolver_calls = []
+
+        def fake_resolver(tool, agent, reason, request_id):
+            resolver_calls.append((tool, agent, reason, request_id))
+            return True
+
+        # interactive=False and no tty — a plain terminal prompt would deny
+        # by default, but a resolver should still be consulted.
+        engine = PermissionEngine(cfg, mode="build", interactive=False, resolver=fake_resolver)
+
+        self.assertTrue(engine.check("bash", agent="executor", reason="run tests"))
+        self.assertEqual(len(resolver_calls), 1)
+        self.assertEqual(resolver_calls[0][:3], ("bash", "executor", "run tests"))
+
+    def test_resolver_takes_priority_over_terminal_prompt(self):
+        cfg = OmniAgentConfig(permission=PermissionConfig(rules={"bash": "ask"}))
+        prompt_calls = []
+
+        engine = PermissionEngine(
+            cfg, mode="build", interactive=True,
+            prompt=lambda tool, agent, reason: prompt_calls.append(1) or True,
+            resolver=lambda tool, agent, reason, request_id: False,
+        )
+
+        with patch("sys.stdin.isatty", return_value=True):
+            result = engine.check("bash", agent="executor")
+
+        self.assertFalse(result)  # resolver's answer, not the prompt's
+        self.assertEqual(prompt_calls, [])  # prompt never called
+
+    def test_requested_and_resolved_events_share_the_same_request_id(self):
+        cfg = OmniAgentConfig(permission=PermissionConfig(rules={"bash": "ask"}))
+        engine = PermissionEngine(
+            cfg, mode="build",
+            resolver=lambda tool, agent, reason, request_id: True,
+        )
+
+        engine.check("bash", agent="executor")
+
+        requested = next(e for e in self.received if e.type == "permission.requested")
+        resolved = next(e for e in self.received if e.type == "permission.resolved")
+
+        self.assertIsNotNone(requested.request_id)
+        self.assertEqual(requested.request_id, resolved.request_id)
+
+    def test_auto_mode_still_generates_a_request_id(self):
+        cfg = OmniAgentConfig(permission=PermissionConfig(rules={"bash": "ask"}, auto=True))
+        engine = PermissionEngine(cfg, mode="build")
+
+        engine.check("bash", agent="executor")
+
+        requested = next(e for e in self.received if e.type == "permission.requested")
+        resolved = next(e for e in self.received if e.type == "permission.resolved")
+        self.assertEqual(requested.request_id, resolved.request_id)
+        self.assertIsNotNone(requested.request_id)
+
+
 class TestPermissionDenied(unittest.TestCase):
 
     def test_error_message_includes_tool_and_reason(self):

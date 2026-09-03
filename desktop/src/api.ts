@@ -54,6 +54,22 @@ export async function getSession(sessionId: string): Promise<SessionStatus> {
   return response.json();
 }
 
+export async function respondToPermission(
+  sessionId: string,
+  requestId: string,
+  approved: boolean,
+): Promise<void> {
+  const response = await fetch(`${BASE_URL}/sessions/${sessionId}/permission-response`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ request_id: requestId, approved }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to respond to permission request: ${response.status} ${await response.text()}`);
+  }
+}
+
 /**
  * Subscribe to a session's live event stream. Returns an unsubscribe
  * function. `onEvent` fires for every event including the terminal
