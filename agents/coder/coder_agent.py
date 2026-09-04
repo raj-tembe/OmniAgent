@@ -6,8 +6,10 @@ from langchain_core.messages import AIMessage
 
 from graph.state import AgentState
 from agents.coder.coder_chain import create_coder_chain
+from agents.diffing import compute_file_diffs
 from schemas.coder_schema import CoderOutput
 from tools.agent_tools.todo_tool import TodoTool
+from bus import bus, FileDiff
 
 
 def _build_fallback_response(project_name: str, entry_point: str, generated_files: Dict) -> CoderOutput:
@@ -181,6 +183,19 @@ def coder_agent(state: AgentState) -> Dict:
 
     if interactive and getattr(response, "requires_human_approval", False):
         next_agent = "human"
+
+    #compute and publish diffs for the desktop app's inline diff view —
+    #before every branch below decides on messaging/routing, since diffing
+    #only needs the before/after file snapshots, not the workflow status
+    session_id = state.get("session_id")
+    for file_diff in compute_file_diffs(generated_files, updated_files):
+        bus.publish(FileDiff(
+            filename=file_diff["filename"],
+            change_type=file_diff["change_type"],
+            diff=file_diff["diff"],
+            agent="coder",
+            session_id=session_id,
+        ))
 
 
     #coder workflow logic

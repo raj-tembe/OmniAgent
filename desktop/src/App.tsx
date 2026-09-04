@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import type { AgentMode, SessionEvent } from "./api";
 import { createSession, respondToPermission, streamSessionEvents } from "./api";
+import { DiffView } from "./DiffView";
 import "./App.css";
 
 type RunStatus = "idle" | "running" | "completed" | "error";
@@ -175,12 +176,24 @@ function App() {
         )}
         {events
           .filter((e) => e.type !== "stream.closed")
-          .map((event, i) => (
-            <div key={i} className={`event event-${event.type.replace(/\./g, "-")}`}>
-              <span className="event-type">{event.type}</span>
-              <span className="event-detail">{formatEvent(event)}</span>
-            </div>
-          ))}
+          .map((event, i) => {
+            if (event.type === "file.diff") {
+              return (
+                <DiffView
+                  key={i}
+                  filename={String(event.filename ?? "unknown file")}
+                  changeType={String(event.change_type ?? "modified")}
+                  diff={String(event.diff ?? "")}
+                />
+              );
+            }
+            return (
+              <div key={i} className={`event event-${event.type.replace(/\./g, "-")}`}>
+                <span className="event-type">{event.type}</span>
+                <span className="event-detail">{formatEvent(event)}</span>
+              </div>
+            );
+          })}
         {status === "completed" && <div className="event event-done">Session complete.</div>}
       </section>
     </div>

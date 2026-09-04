@@ -5,6 +5,7 @@ from bus.events import (
     AnyEvent,
     Event,
     EventType,
+    FileDiff,
     MessageDelta,
     MessageEnd,
     MessageStart,
@@ -36,4 +37,5 @@ __all__ = [
     "ToolCallEnd",
     "PermissionRequested",
     "PermissionResolved",
+    "FileDiff",
 ]

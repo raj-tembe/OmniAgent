@@ -62,6 +62,10 @@ have anything to talk to.
   any `permission.requested` event and posts the answer back. Not yet
   wired into `mcp_client/registry.py`'s tool calls (only
   `executor_agent.py` constructs a server-aware PermissionEngine so far).
-- No inline diff view, LSP diagnostics display, or editor-native actions
-  yet — the current UI is a single session panel with a live event log,
-  not a full editor surface.
+- Inline diff view is now wired end to end: coder_agent.py computes a
+  real unified diff (agents/diffing.py, Python's difflib) between the
+  previous and new generated_files on every coding step, publishes a
+  file.diff bus event per changed file, and the desktop app renders it
+  with DiffView.tsx instead of the generic event log line.
+- No LSP diagnostics display or editor-native actions yet — those and
+  workspace scoping are the remaining editor-surface gaps.

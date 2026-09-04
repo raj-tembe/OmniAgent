@@ -26,6 +26,7 @@ EventType = Literal[
     "tool.call.end",
     "permission.requested",
     "permission.resolved",
+    "file.diff",
 ]
 
 
@@ -135,6 +136,16 @@ class PermissionResolved(Event):
     request_id: Optional[str] = Field(default=None, description="Matches the request_id from the PermissionRequested event this resolves.")
 
 
+#file changes (coder_agent's proposed edits, before/after execution)
+
+class FileDiff(Event):
+    type: Literal["file.diff"] = "file.diff"
+    filename: str = Field(..., description="Path of the file that changed.")
+    change_type: Literal["added", "modified"] = Field(..., description="Whether this file is new or an edit to an existing one.")
+    diff: str = Field(..., description="Unified diff text (before -> after).")
+    agent: str = Field(default="coder", description="Agent that produced this change.")
+
+
 #convenience union for type checkers / handler signatures
 
 AnyEvent = (
@@ -150,4 +161,5 @@ AnyEvent = (
     | ToolCallEnd
     | PermissionRequested
     | PermissionResolved
+    | FileDiff
 )

@@ -160,3 +160,78 @@
   background: #b3261e;
   color: white;
 }
+
+.diff-view {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.diff-view-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  background: #f0f0f0;
+  font-family: ui-monospace, monospace;
+  font-size: 0.8rem;
+}
+
+.diff-badge {
+  padding: 0.1rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.diff-badge-added {
+  background: #e6f4ea;
+  color: #1e7e34;
+}
+
+.diff-badge-modified {
+  background: #fff4e5;
+  color: #b5651d;
+}
+
+.diff-filename {
+  font-weight: 600;
+}
+
+.diff-body {
+  margin: 0;
+  padding: 0.4rem 0;
+  font-family: ui-monospace, monospace;
+  font-size: 0.78rem;
+  overflow-x: auto;
+  background: #fff;
+}
+
+.diff-line {
+  padding: 0 0.75rem;
+  white-space: pre;
+}
+
+.diff-line-add {
+  background: #e6ffed;
+  color: #22863a;
+}
+
+.diff-line-remove {
+  background: #ffeef0;
+  color: #b31d28;
+}
+
+.diff-line-hunk {
+  background: #f1f8ff;
+  color: #6f42c1;
+}
+
+.diff-line-header {
+  color: #999;
+}
+
+.diff-line-context {
+  color: #444;
+}
