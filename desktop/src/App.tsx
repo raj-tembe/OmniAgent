@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import type { AgentMode, SessionEvent } from "./api";
 import { createSession, respondToPermission, streamSessionEvents } from "./api";
 import { DiffView } from "./DiffView";
+import { DiagnosticsView } from "./DiagnosticsView";
 import "./App.css";
 
 type RunStatus = "idle" | "running" | "completed" | "error";
@@ -184,6 +185,15 @@ function App() {
                   filename={String(event.filename ?? "unknown file")}
                   changeType={String(event.change_type ?? "modified")}
                   diff={String(event.diff ?? "")}
+                />
+              );
+            }
+            if (event.type === "lsp.diagnostics") {
+              return (
+                <DiagnosticsView
+                  key={i}
+                  filename={String(event.filename ?? "unknown file")}
+                  diagnostics={Array.isArray(event.diagnostics) ? event.diagnostics : []}
                 />
               );
             }

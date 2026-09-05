@@ -235,3 +235,94 @@
 .diff-line-context {
   color: #444;
 }
+
+.diagnostics-view {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+  font-family: ui-monospace, monospace;
+  font-size: 0.8rem;
+}
+
+.diagnostics-clean {
+  border-color: #cde9d1;
+}
+
+.diagnostics-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.4rem 0.75rem;
+  background: #f0f0f0;
+}
+
+.diagnostics-clean .diagnostics-header {
+  background: #e6f4ea;
+}
+
+.diagnostics-filename {
+  font-weight: 600;
+}
+
+.diagnostics-count {
+  color: #666;
+  font-size: 0.75rem;
+}
+
+.diagnostics-clean .diagnostics-count {
+  color: #1e7e34;
+}
+
+.diagnostics-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.diagnostic-item {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.35rem 0.75rem;
+  border-top: 1px solid #f0f0f0;
+}
+
+.diagnostic-severity {
+  text-transform: uppercase;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.05rem 0.35rem;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.diagnostic-error .diagnostic-severity {
+  background: #ffeef0;
+  color: #b31d28;
+}
+
+.diagnostic-warning .diagnostic-severity {
+  background: #fff8e1;
+  color: #a06800;
+}
+
+.diagnostic-information .diagnostic-severity,
+.diagnostic-hint .diagnostic-severity {
+  background: #f1f8ff;
+  color: #0366d6;
+}
+
+.diagnostic-location {
+  color: #999;
+  flex-shrink: 0;
+}
+
+.diagnostic-message {
+  flex: 1;
+}
+
+.diagnostic-source {
+  color: #999;
+  font-size: 0.7rem;
+  flex-shrink: 0;
+}

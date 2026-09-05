@@ -6,6 +6,7 @@ from bus.events import (
     Event,
     EventType,
     FileDiff,
+    LspDiagnostics,
     MessageDelta,
     MessageEnd,
     MessageStart,
@@ -38,4 +39,5 @@ __all__ = [
     "PermissionRequested",
     "PermissionResolved",
     "FileDiff",
+    "LspDiagnostics",
 ]

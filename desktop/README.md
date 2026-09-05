@@ -67,5 +67,9 @@ have anything to talk to.
   previous and new generated_files on every coding step, publishes a
   file.diff bus event per changed file, and the desktop app renders it
   with DiffView.tsx instead of the generic event log line.
-- No LSP diagnostics display or editor-native actions yet — those and
-  workspace scoping are the remaining editor-surface gaps.
+- LSP diagnostics are now surfaced in the UI too: critic_agent.py
+  publishes an lsp.diagnostics event per checked file (including clean
+  ones, so "checked, no issues" is distinguishable from "not checked"),
+  rendered by DiagnosticsView.tsx.
+- No editor-native actions or workspace scoping yet — those are the
+  remaining editor-surface gaps.

@@ -8,15 +8,20 @@ from agents.critic.critic_chain import (
     create_critic_chain
 )
 from lsp import LspError, get_diagnostics, get_server_command
+from bus import bus, LspDiagnostics
 
 
-def _collect_lsp_diagnostics(generated_files: Dict[str, str]) -> str:
+def _collect_lsp_diagnostics(generated_files: Dict[str, str], session_id: str = None) -> str:
     """
     Run static analysis on every generated file whose extension has a
     configured language server, and format the results for the critic's
     prompt. A file with no configured server, or whose server fails to
     respond, is skipped rather than blocking the review — LSP feedback is
     a helpful input to the critic's judgment, not a hard gate on it.
+
+    Also publishes an lsp.diagnostics bus event per file that was actually
+    checked — including files that came back clean, so the desktop app can
+    show "checked, no issues" rather than nothing at all for those.
     """
     from pathlib import Path
 
@@ -30,6 +35,8 @@ def _collect_lsp_diagnostics(generated_files: Dict[str, str]) -> str:
             diagnostics = get_diagnostics(filename, content=content, timeout=15)
         except LspError:
             continue
+
+        bus.publish(LspDiagnostics(filename=filename, diagnostics=diagnostics, session_id=session_id))
 
         if not diagnostics:
             continue
@@ -98,7 +105,7 @@ def critic_agent(state: AgentState) -> Dict:
         0
     )
 
-    lsp_diagnostics = _collect_lsp_diagnostics(generated_files)
+    lsp_diagnostics = _collect_lsp_diagnostics(generated_files, session_id=state.get("session_id"))
 
 
     #create chain

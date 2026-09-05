@@ -27,6 +27,7 @@ EventType = Literal[
     "permission.requested",
     "permission.resolved",
     "file.diff",
+    "lsp.diagnostics",
 ]
 
 
@@ -146,6 +147,15 @@ class FileDiff(Event):
     agent: str = Field(default="coder", description="Agent that produced this change.")
 
 
+#static analysis (critic_agent's LSP-based review)
+
+class LspDiagnostics(Event):
+    type: Literal["lsp.diagnostics"] = "lsp.diagnostics"
+    filename: str = Field(..., description="File the diagnostics apply to.")
+    diagnostics: List[Dict[str, Any]] = Field(default_factory=list, description="Structured diagnostics (severity, message, line, column, source) — empty means the file was checked and came back clean.")
+    agent: str = Field(default="critic", description="Agent that ran the check.")
+
+
 #convenience union for type checkers / handler signatures
 
 AnyEvent = (
@@ -162,4 +172,5 @@ AnyEvent = (
     | PermissionRequested
     | PermissionResolved
     | FileDiff
+    | LspDiagnostics
 )
