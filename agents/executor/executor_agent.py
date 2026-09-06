@@ -5,25 +5,8 @@ from graph.state import AgentState
 from agents.executor.sandbox_runner import (
     execute_generated_project
 )
-from config import load_config
-from permission import PermissionEngine
+from permission import build_permission_engine
 from tools.agent_tools.todo_tool import TodoTool
-
-
-def _build_permission_engine(agent_mode: str, interactive: bool, server_mode: bool) -> PermissionEngine:
-    """
-    In server mode, "ask" rules resolve through an HTTP round-trip to the
-    desktop app instead of a terminal prompt — see
-    server/permission_bridge.py. Deferred import: executor_agent.py must
-    not require FastAPI just to run under the plain CLI, and server_mode
-    only becomes True when server/sessions.py is actually driving the run.
-    """
-    resolver = None
-    if server_mode:
-        from server.permission_bridge import make_server_resolver
-        resolver = make_server_resolver()
-
-    return PermissionEngine(load_config(), mode=agent_mode, interactive=interactive, resolver=resolver)
 
 def executor_agent(state: AgentState) -> Dict:
     """
@@ -91,7 +74,7 @@ def executor_agent(state: AgentState) -> Dict:
     # sandbox are exactly the "write"/"bash"-equivalent actions the
     # permission engine gates. Plan mode denies both by default; a custom
     # omniagent.json can loosen this to "ask" or "allow".
-    permission_engine = _build_permission_engine(agent_mode, interactive, server_mode)
+    permission_engine = build_permission_engine(agent_mode=agent_mode, interactive=interactive, server_mode=server_mode)
     if state.get("auto_approve"):
         permission_engine.auto = True
 

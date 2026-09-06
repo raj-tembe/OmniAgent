@@ -79,6 +79,65 @@ class TestCallServerTool(unittest.TestCase):
 
         self.assertTrue(result["success"])
 
+    def test_no_permission_engine_still_enforces_a_deny_rule(self):
+        """
+        The actual point of this change: omitting `permission_engine` used
+        to mean "skip the gate entirely." Now it means "build one from
+        `config`" — so a deny rule in `config.permission` is enforced even
+        when the caller didn't think to construct an engine themselves.
+        """
+        config = OmniAgentConfig(
+            mcp={"github": McpServerConfig(type="remote", url="https://mcp.github.com")},
+            permission=PermissionConfig(rules={"github_delete_repo": "deny"}),
+        )
+
+        with patch("mcp_client.registry.call_tool") as mock_call:
+            result = call_server_tool(config, "github", "delete_repo", {})
+
+        mock_call.assert_not_called()
+        self.assertFalse(result["success"])
+        self.assertIn("Permission denied", result["error"])
+
+    def test_no_permission_engine_uses_the_same_config_passed_in(self):
+        """
+        The auto-built engine must read permission rules from the SAME
+        `config` object passed to call_server_tool, not a freshly
+        load_config()'d one that might disagree with it.
+        """
+        config = OmniAgentConfig(
+            mcp={"github": McpServerConfig(type="remote", url="https://mcp.github.com")},
+            permission=PermissionConfig(rules={"github_search_issues": "allow"}),
+        )
+
+        with patch("permission.factory.load_config") as mock_load_config, \
+             patch("mcp_client.registry.call_tool", return_value={"success": True, "content": "ok"}):
+            call_server_tool(config, "github", "search_issues", {})
+
+        mock_load_config.assert_not_called()
+
+    def test_server_mode_true_builds_a_server_aware_engine(self):
+        config = OmniAgentConfig(
+            mcp={"github": McpServerConfig(type="remote", url="https://mcp.github.com")},
+            permission=PermissionConfig(rules={"github_search_issues": "ask"}),
+        )
+
+        with patch("server.permission_bridge.make_server_resolver", return_value=lambda *a: True) as mock_make_resolver, \
+             patch("mcp_client.registry.call_tool", return_value={"success": True, "content": "ok"}) as mock_call:
+            result = call_server_tool(config, "github", "search_issues", {}, server_mode=True)
+
+        mock_make_resolver.assert_called_once()
+        mock_call.assert_called_once()
+        self.assertTrue(result["success"])
+
+    def test_non_server_mode_never_touches_server_bridge(self):
+        config = OmniAgentConfig(mcp={"github": McpServerConfig(type="remote", url="https://mcp.github.com")})
+
+        with patch("server.permission_bridge.make_server_resolver") as mock_make_resolver, \
+             patch("mcp_client.registry.call_tool", return_value={"success": True, "content": "ok"}):
+            call_server_tool(config, "github", "search_issues", {}, server_mode=False)
+
+        mock_make_resolver.assert_not_called()
+
     def test_permission_engine_denies_call(self):
         config = _config(github=McpServerConfig(type="remote", url="https://mcp.github.com"))
 

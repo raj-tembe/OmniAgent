@@ -236,7 +236,7 @@ class TestExecutorAgent(unittest.TestCase):
         from config.schema import OmniAgentConfig, PermissionConfig
         ask_config = OmniAgentConfig(permission=PermissionConfig(rules={"write": "ask", "bash": "ask"}))
 
-        with patch("agents.executor.executor_agent.load_config", return_value=ask_config), \
+        with patch("permission.factory.load_config", return_value=ask_config), \
              patch("server.permission_bridge.make_server_resolver", return_value=lambda *a: True) as mock_make_resolver, \
              patch(
                  "agents.executor.executor_agent.execute_generated_project",

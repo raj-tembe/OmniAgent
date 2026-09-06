@@ -59,9 +59,11 @@ have anything to talk to.
   `POST /sessions/{id}/permission-response`, `permission/engine.py` gained
   a `resolver` seam that blocks on it instead of a terminal prompt when
   `server_mode=True`, and the desktop app shows an Allow/Deny dialog for
-  any `permission.requested` event and posts the answer back. Not yet
-  wired into `mcp_client/registry.py`'s tool calls (only
-  `executor_agent.py` constructs a server-aware PermissionEngine so far).
+  any `permission.requested` event and posts the answer back. Centralized
+  in `permission/factory.py` and wired into both `executor_agent.py` and
+  `mcp_client/registry.py` — an MCP tool call gets the same UI treatment
+  as a built-in one, with the permission gate now mandatory rather than
+  opt-in for MCP calls.
 - Inline diff view is now wired end to end: coder_agent.py computes a
   real unified diff (agents/diffing.py, Python's difflib) between the
   previous and new generated_files on every coding step, publishes a
