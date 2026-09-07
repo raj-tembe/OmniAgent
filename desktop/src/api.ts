@@ -70,6 +70,34 @@ export async function respondToPermission(
   }
 }
 
+export interface WorkspaceEntry {
+  name: string;
+  path: string;
+  is_dir: boolean;
+}
+
+export async function getWorkspaceTree(path: string = "", root?: string): Promise<{ root: string; path: string; entries: WorkspaceEntry[] }> {
+  const params = new URLSearchParams({ path });
+  if (root) params.set("root", root);
+
+  const response = await fetch(`${BASE_URL}/workspace/tree?${params}`);
+  if (!response.ok) {
+    throw new Error(`Failed to list workspace directory: ${response.status} ${await response.text()}`);
+  }
+  return response.json();
+}
+
+export async function getWorkspaceFile(path: string, root?: string): Promise<{ root: string; path: string; content: string }> {
+  const params = new URLSearchParams({ path });
+  if (root) params.set("root", root);
+
+  const response = await fetch(`${BASE_URL}/workspace/file?${params}`);
+  if (!response.ok) {
+    throw new Error(`Failed to read workspace file: ${response.status} ${await response.text()}`);
+  }
+  return response.json();
+}
+
 /**
  * Subscribe to a session's live event stream. Returns an unsubscribe
  * function. `onEvent` fires for every event including the terminal

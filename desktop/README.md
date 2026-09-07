@@ -73,5 +73,13 @@ have anything to talk to.
   publishes an lsp.diagnostics event per checked file (including clean
   ones, so "checked, no issues" is distinguishable from "not checked"),
   rendered by DiagnosticsView.tsx.
-- No editor-native actions or workspace scoping yet — those are the
-  remaining editor-surface gaps.
+- A read-only workspace file browser is now in place: point the app at
+  any local directory (the input field above the session panel) and
+  browse/view its files via server/workspace.py's path-traversal-safe
+  GET /workspace/tree and GET /workspace/file, rendered by FileTree.tsx.
+  This lets you *see* a real project, but the agent itself still only
+  reads/writes within the fixed GENERATED_PROJECT_DIR — redirecting the
+  agent's own execution path to an arbitrary chosen workspace is a
+  separate, larger change to the sandbox internals, not done here.
+- No editor-native actions yet (right-click "explain this", "fix this
+  diagnostic", etc.) — the remaining editor-surface gap.

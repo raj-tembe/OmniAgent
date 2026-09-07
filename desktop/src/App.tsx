@@ -3,6 +3,7 @@ import type { AgentMode, SessionEvent } from "./api";
 import { createSession, respondToPermission, streamSessionEvents } from "./api";
 import { DiffView } from "./DiffView";
 import { DiagnosticsView } from "./DiagnosticsView";
+import { FileTree } from "./FileTree";
 import "./App.css";
 
 type RunStatus = "idle" | "running" | "completed" | "error";
@@ -18,6 +19,8 @@ function App() {
   const [userRequest, setUserRequest] = useState("");
   const [agentMode, setAgentMode] = useState<AgentMode>("build");
   const [autoApprove, setAutoApprove] = useState(false);
+  const [workspaceRoot, setWorkspaceRoot] = useState("");
+  const [workspaceInput, setWorkspaceInput] = useState("");
   const [status, setStatus] = useState<RunStatus>("idle");
   const [events, setEvents] = useState<SessionEvent[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -108,6 +111,23 @@ function App() {
         <h1>OmniAgent</h1>
         <p className="subtitle">Autonomous coding agent — desktop</p>
       </header>
+
+      <section className="workspace-picker">
+        <input
+          className="workspace-input"
+          placeholder="Workspace folder path (defaults to the generated-project dir)"
+          value={workspaceInput}
+          onChange={(e) => setWorkspaceInput(e.target.value)}
+        />
+        <button
+          className="workspace-open-button"
+          onClick={() => setWorkspaceRoot(workspaceInput.trim())}
+        >
+          Open
+        </button>
+      </section>
+
+      {workspaceRoot && <FileTree root={workspaceRoot} />}
 
       <section className="request-panel">
         <textarea

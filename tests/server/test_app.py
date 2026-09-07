@@ -1,6 +1,7 @@
 import json
 import time
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -148,6 +149,65 @@ class TestServerEndpoints(unittest.TestCase):
             json={"request_id": "never-registered", "approved": True},
         )
 
+        self.assertEqual(response.status_code, 404)
+
+
+class TestWorkspaceEndpoints(unittest.TestCase):
+
+    def setUp(self):
+        self.test_manager = SessionManager(run_workflow_fn=_fast_completing_workflow)
+        self.patcher = patch("server.app.session_manager", self.test_manager)
+        self.patcher.start()
+        self.client = TestClient(app)
+
+        from tempfile import TemporaryDirectory
+        self.tmpdir = TemporaryDirectory()
+        self.root = Path(self.tmpdir.name)
+        (self.root / "src").mkdir()
+        (self.root / "src" / "main.py").write_text("print('hi')\n")
+        (self.root / "README.md").write_text("# Project\n")
+
+    def tearDown(self):
+        self.patcher.stop()
+        self.tmpdir.cleanup()
+
+    def test_tree_lists_root_contents(self):
+        response = self.client.get("/workspace/tree", params={"root": str(self.root)})
+
+        self.assertEqual(response.status_code, 200)
+        names = {e["name"] for e in response.json()["entries"]}
+        self.assertEqual(names, {"src", "README.md"})
+
+    def test_tree_lists_nested_path(self):
+        response = self.client.get("/workspace/tree", params={"root": str(self.root), "path": "src"})
+
+        self.assertEqual(response.status_code, 200)
+        names = {e["name"] for e in response.json()["entries"]}
+        self.assertEqual(names, {"main.py"})
+
+    def test_tree_rejects_path_traversal(self):
+        response = self.client.get("/workspace/tree", params={"root": str(self.root), "path": "../../etc"})
+        self.assertEqual(response.status_code, 400)
+
+    def test_tree_missing_path_is_404(self):
+        response = self.client.get("/workspace/tree", params={"root": str(self.root), "path": "nonexistent"})
+        self.assertEqual(response.status_code, 404)
+
+    def test_file_returns_content(self):
+        response = self.client.get("/workspace/file", params={"root": str(self.root), "path": "src/main.py"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["content"], "print('hi')\n")
+
+    def test_file_rejects_denied_filename(self):
+        (self.root / ".env").write_text("SECRET=1")
+
+        response = self.client.get("/workspace/file", params={"root": str(self.root), "path": ".env"})
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_file_missing_is_404(self):
+        response = self.client.get("/workspace/file", params={"root": str(self.root), "path": "nonexistent.py"})
         self.assertEqual(response.status_code, 404)
 
 
