@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import type { WorkspaceEntry } from "./api";
 import { getWorkspaceFile, getWorkspaceTree } from "./api";
+import { EDITOR_ACTIONS, composeActionPrompt, type EditorAction } from "./editorActions";
 
 interface FileTreeProps {
   root: string;
+  onAction?: (userRequest: string) => void;
 }
 
 interface DirState {
@@ -13,7 +15,7 @@ interface DirState {
   error?: string;
 }
 
-export function FileTree({ root }: FileTreeProps) {
+export function FileTree({ root, onAction }: FileTreeProps) {
   const [dirs, setDirs] = useState<Record<string, DirState>>({});
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState<string>("");
@@ -62,6 +64,11 @@ export function FileTree({ root }: FileTreeProps) {
     }
   };
 
+  const runAction = (action: EditorAction) => {
+    if (!selectedFile || !onAction) return;
+    onAction(composeActionPrompt(action, selectedFile, fileContent));
+  };
+
   const renderDir = (path: string, depth: number) => {
     const state = dirs[path];
     if (!state) return null;
@@ -92,7 +99,18 @@ export function FileTree({ root }: FileTreeProps) {
       </div>
       {selectedFile && (
         <div className="file-viewer">
-          <div className="file-viewer-header">{selectedFile}</div>
+          <div className="file-viewer-header">
+            <span className="file-viewer-path">{selectedFile}</span>
+            {!fileError && onAction && (
+              <div className="file-viewer-actions">
+                {EDITOR_ACTIONS.map((a) => (
+                  <button key={a.id} className="editor-action-button" onClick={() => runAction(a.id)}>
+                    {a.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           {fileError ? (
             <div className="tree-error">{fileError}</div>
           ) : (

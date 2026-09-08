@@ -28,6 +28,7 @@ function App() {
   const unsubscribeRef = useRef<(() => void) | null>(null);
   const sessionIdRef = useRef<string | null>(null);
   const resolvedRequestIdsRef = useRef<Set<string>>(new Set());
+  const requestInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   const startSession = useCallback(async () => {
     if (!userRequest.trim() || status === "running") return;
@@ -127,10 +128,20 @@ function App() {
         </button>
       </section>
 
-      {workspaceRoot && <FileTree root={workspaceRoot} />}
+      {workspaceRoot && (
+        <FileTree
+          root={workspaceRoot}
+          onAction={(prefilled) => {
+            setUserRequest(prefilled);
+            requestInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+            requestInputRef.current?.focus();
+          }}
+        />
+      )}
 
       <section className="request-panel">
         <textarea
+          ref={requestInputRef}
           className="request-input"
           placeholder="Describe what you want OmniAgent to build or fix..."
           value={userRequest}
