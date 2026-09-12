@@ -23,11 +23,17 @@ Standalone desktop IDE shell for OmniAgent, built with Tauri (Rust) + React.
     event per checked file (including clean ones, so "checked, no issues"
     reads differently from "not checked"), rendered by
     `DiagnosticsView.tsx`.
-  - **Workspace file browser** (read-only) — point the app at any local
+  - **Workspace browser + agent redirection** — point the app at any local
     directory via the input field above the session panel; browse/view its
     files through `server/workspace.py`'s path-traversal-safe
     `GET /workspace/tree` / `GET /workspace/file`, rendered by
-    `FileTree.tsx`.
+    `FileTree.tsx`. The same directory now also drives where the agent
+    itself operates: `agents/executor/sandbox_runner.py` accepts a
+    `workspace` override (threaded through `graph/state.py`, `main.py`,
+    and both server endpoints) instead of always writing to the fixed
+    `GENERATED_PROJECT_DIR`, and the desktop app passes the file browser's
+    open directory straight into session creation — open a project, then
+    run a session against that same real project.
   - **Editor-native actions** — select a file in the tree and use the
     Explain / Fix issues / Generate tests buttons in the file viewer header
     to pre-fill the session request with a real prompt built from that
@@ -52,11 +58,6 @@ Standalone desktop IDE shell for OmniAgent, built with Tauri (Rust) + React.
   distributable build — `main.rs` currently shells out to a system
   `python3`, which only works for local development. A standalone Python
   build (PyInstaller or similar) is a follow-up task.
-- The workspace file browser is human-facing only: the agent itself still
-  reads/writes within the fixed `GENERATED_PROJECT_DIR`, not whatever
-  directory the file tree is pointed at. Redirecting the agent's own
-  execution path to an arbitrary chosen workspace is a separate, larger
-  change to the sandbox internals, not attempted here.
 
 ## Development setup (once you have Rust + Tauri CLI installed)
 

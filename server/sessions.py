@@ -66,6 +66,7 @@ class SessionManager:
         agent_mode: str = "build",
         auto_approve: bool = False,
         interactive: bool = False,
+        workspace: Optional[str] = None,
     ) -> str:
         """Start a new session and return its id immediately (the workflow runs in the background)."""
         session_id = uuid.uuid4().hex
@@ -86,6 +87,7 @@ class SessionManager:
                     auto_approve=auto_approve,
                     session_id=session_id,
                     server_mode=True,
+                    workspace=workspace,
                 )
                 record.result = result
                 record.status = "error" if result.get("error") else "completed"

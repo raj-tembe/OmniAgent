@@ -36,6 +36,7 @@ def run_workflow(
     auto_approve: bool = False,
     session_id: str = None,
     server_mode: bool = False,
+    workspace: str = None,
 ) -> dict:
     """
     Execute OmniAgent workflow for given user request.
@@ -56,6 +57,10 @@ def run_workflow(
             Routes "ask" permission prompts through the HTTP resolver
             (server/permission_bridge.py) instead of a terminal prompt,
             since a server process has no attached console to prompt on.
+        workspace: Directory to save/run generated projects in, overriding
+            GENERATED_PROJECT_DIR — typically the directory a user opened in
+            the desktop app's workspace file browser. Falls back to the
+            fixed global default when not given.
 
     Returns:
         Workflow execution result with status and generated artifacts
@@ -81,6 +86,7 @@ def run_workflow(
             "agent_mode": agent_mode,
             "auto_approve": auto_approve,
             "server_mode": server_mode,
+            "workspace": workspace or "",
             "messages": [],
             "plan": [],
             "code": "",

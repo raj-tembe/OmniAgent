@@ -42,6 +42,7 @@ def executor_agent(state: AgentState) -> Dict:
     interactive = state.get("interactive", False)
     session_id = state.get("session_id")
     server_mode = state.get("server_mode", False)
+    workspace = state.get("workspace") or None
 
     #Validate generated files
 
@@ -113,6 +114,7 @@ def executor_agent(state: AgentState) -> Dict:
         generated_files=generated_files,
         project_name=project_name,
         entry_point=entry_point,
+        workspace=workspace,
     )
 
     # Detect if this is a web server app

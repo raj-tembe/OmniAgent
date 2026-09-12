@@ -10,7 +10,7 @@ from server.app import app
 from server.sessions import SessionManager
 
 
-def _fast_completing_workflow(user_request, interactive, agent_mode, auto_approve, session_id, server_mode=False):
+def _fast_completing_workflow(user_request, interactive, agent_mode, auto_approve, session_id, server_mode=False, workspace=None):
     return {"execution_success": True, "quality_score": 8.5, "session_id": session_id}
 
 
@@ -55,7 +55,7 @@ class TestServerEndpoints(unittest.TestCase):
     def test_create_session_passes_through_agent_mode_and_auto_approve(self):
         received_kwargs = {}
 
-        def capturing_workflow(user_request, interactive, agent_mode, auto_approve, session_id, server_mode=False):
+        def capturing_workflow(user_request, interactive, agent_mode, auto_approve, session_id, server_mode=False, workspace=None):
             received_kwargs.update(dict(
                 user_request=user_request, interactive=interactive,
                 agent_mode=agent_mode, auto_approve=auto_approve,
@@ -83,7 +83,7 @@ class TestServerEndpoints(unittest.TestCase):
     def test_event_stream_delivers_events_and_closes(self):
         from bus import bus, AgentStarted
 
-        def workflow_with_events(user_request, interactive, agent_mode, auto_approve, session_id, server_mode=False):
+        def workflow_with_events(user_request, interactive, agent_mode, auto_approve, session_id, server_mode=False, workspace=None):
             bus.publish(AgentStarted(agent="planner", session_id=session_id))
             bus.publish(AgentStarted(agent="coder", session_id=session_id))
             return {"execution_success": True}

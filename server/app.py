@@ -28,6 +28,7 @@ class CreateSessionRequest(BaseModel):
     agent_mode: str = Field(default="build", description="'build' or 'plan'.")
     auto_approve: bool = Field(default=False, description="Auto-approve 'ask' permission rules.")
     interactive: bool = Field(default=False, description="Enable human-approval nodes.")
+    workspace: Optional[str] = Field(default=None, description="Directory to save/run generated projects in, overriding GENERATED_PROJECT_DIR.")
 
 
 class CreateSessionResponse(BaseModel):
@@ -80,6 +81,7 @@ def create_session(request: CreateSessionRequest) -> CreateSessionResponse:
         agent_mode=request.agent_mode,
         auto_approve=request.auto_approve,
         interactive=request.interactive,
+        workspace=request.workspace,
     )
     return CreateSessionResponse(session_id=session_id)
 

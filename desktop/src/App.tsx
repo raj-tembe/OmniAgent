@@ -45,6 +45,7 @@ function App() {
         user_request: userRequest,
         agent_mode: agentMode,
         auto_approve: autoApprove,
+        workspace: workspaceRoot || undefined,
       });
       sessionIdRef.current = session_id;
 
@@ -89,7 +90,7 @@ function App() {
       setStatus("error");
       setErrorMessage(err instanceof Error ? err.message : String(err));
     }
-  }, [userRequest, agentMode, autoApprove, status]);
+  }, [userRequest, agentMode, autoApprove, workspaceRoot, status]);
 
   const answerPermission = useCallback(async (requestId: string, approved: boolean) => {
     const sessionId = sessionIdRef.current;

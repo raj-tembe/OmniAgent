@@ -80,6 +80,10 @@ class AgentState(MessagesState):
     auto_approve: bool  # auto-approve "ask" permission rules automatically
     server_mode: bool  # True when running under server/sessions.py — routes "ask" permission prompts through the HTTP resolver instead of a terminal prompt
 
+    # WORKSPACE
+
+    workspace: str  # optional directory override for where generated projects are saved/run — see agents/executor/sandbox_runner.py; falls back to GENERATED_PROJECT_DIR when empty
+
     # VISIBLE TASK LIST
 
     todos: List[Dict]  # TodoTool-managed list, mirrors `plan` but user/IDE-visible with per-item status

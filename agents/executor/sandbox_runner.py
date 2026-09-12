@@ -1,5 +1,5 @@
 import logging
-from typing import Dict
+from typing import Dict, Optional
 from pathlib import Path
 
 from agents.executor.docker_runner import run_in_docker
@@ -28,13 +28,21 @@ def _safe_child_path(base_path: Path, relative_path: str) -> Path:
 
 def save_generated_files(
         generated_files: Dict[str, str],
-        project_name: str = "current_project"
+        project_name: str = "current_project",
+        workspace: Optional[str] = None,
 ) -> str:
     """
     Save generated files to sandbox project directory.
+
+    `workspace` overrides where the project is saved — the directory a user
+    opened in the desktop app's file browser (see server/workspace.py),
+    threaded through graph/state.py's `workspace` field. Falls back to the
+    fixed global GENERATED_PROJECT_DIR when not given, so a plain CLI run
+    with no workspace selected keeps the existing behavior unchanged.
     """
+    base_dir = Path(workspace) if workspace else Path(GENERATED_PROJECT_DIR)
     project_path = _safe_child_path(
-        Path(GENERATED_PROJECT_DIR),
+        base_dir,
         project_name or "current_project"
     )
     
@@ -61,7 +69,8 @@ def execute_generated_project(
         generated_files: Dict[str, str],
         project_name: str = "current_project",
         command: str = None,
-        entry_point: str = "app.py"
+        entry_point: str = "app.py",
+        workspace: Optional[str] = None,
 ) -> ExecutionResult:
     
     """
@@ -70,7 +79,8 @@ def execute_generated_project(
     """
     project_path = save_generated_files(
         generated_files=generated_files,
-        project_name=project_name
+        project_name=project_name,
+        workspace=workspace,
         )
     
     # Auto-detect web server frameworks

@@ -279,3 +279,59 @@ class TestExecutorAgent(unittest.TestCase):
             })
 
         mock_make_resolver.assert_not_called()
+
+    def test_workspace_from_state_is_passed_to_execute_generated_project(self):
+        execution_result = ExecutionResult(
+            execution_status="success",
+            execution_success=True,
+            stdout="OK",
+            stderr="",
+            error_message=None,
+            executed_command="python app.py",
+            generated_output_files=[],
+            execution_time=0.1,
+            next_agent="critic",
+        )
+
+        with patch(
+            "agents.executor.executor_agent.execute_generated_project",
+            return_value=execution_result,
+        ) as mock_execute:
+            executor_agent({
+                "generated_files": {"app.py": "print(1)"},
+                "retry_count": 0,
+                "workspace": "/home/user/my-real-project",
+            })
+
+        self.assertEqual(mock_execute.call_args.kwargs["workspace"], "/home/user/my-real-project")
+
+    def test_no_workspace_in_state_passes_none(self):
+        """
+        Confirms the default-preserving path: an empty/missing workspace in
+        state must reach execute_generated_project as None, not "" — that's
+        what makes sandbox_runner.py's `Path(workspace) if workspace else
+        GENERATED_PROJECT_DIR` fall through to the existing global default.
+        """
+        execution_result = ExecutionResult(
+            execution_status="success",
+            execution_success=True,
+            stdout="OK",
+            stderr="",
+            error_message=None,
+            executed_command="python app.py",
+            generated_output_files=[],
+            execution_time=0.1,
+            next_agent="critic",
+        )
+
+        with patch(
+            "agents.executor.executor_agent.execute_generated_project",
+            return_value=execution_result,
+        ) as mock_execute:
+            executor_agent({
+                "generated_files": {"app.py": "print(1)"},
+                "retry_count": 0,
+                "workspace": "",
+            })
+
+        self.assertIsNone(mock_execute.call_args.kwargs["workspace"])

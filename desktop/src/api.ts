@@ -15,6 +15,7 @@ export interface CreateSessionRequest {
   agent_mode?: AgentMode;
   auto_approve?: boolean;
   interactive?: boolean;
+  workspace?: string;
 }
 
 export interface SessionStatus {
