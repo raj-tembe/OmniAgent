@@ -7,19 +7,25 @@
 // business logic of its own; every actual agent capability lives in the
 // Python side.
 //
-// NOT compiled or tested in the environment this was written in — there is
-// no Rust toolchain available there. This needs `cargo tauri dev` /
-// `cargo tauri build` on a machine that has Rust + the Tauri CLI installed
-// before it's known to work. Treat it as a first draft to build against,
-// not a verified artifact.
+// Verified against a real `cargo tauri dev` run (see PR/commit history for
+// the verification report) after two real bugs were found and fixed here:
+// repo_root() previously derived the repo root from the runtime working
+// directory, which `cargo tauri dev` does not reliably set to the crate
+// directory — it now uses CARGO_MANIFEST_DIR, a compile-time constant Cargo
+// always sets correctly regardless of how the binary is launched. And
+// spawn_server() previously always shelled out to a bare `python3`, which
+// resolves to the system interpreter (no OmniAgent dependencies installed)
+// rather than the project's virtualenv — it now looks for `.venv`/`venv`
+// under the repo root first. See python_executable() below.
 //
-// Packaging note: this spawns `python3` and assumes the OmniAgent Python
-// environment (requirements.txt) is already set up in the parent directory.
-// For a distributable build (not just local dev), the Python backend needs
-// to be bundled as a standalone executable (e.g. via PyInstaller) rather
-// than shelling out to a system `python3` — that's a follow-up task, not
+// Packaging note: this still assumes a Python environment (venv or system)
+// with requirements.txt already installed is present at the repo root. For
+// a distributable build (not just local dev), the Python backend needs to
+// be bundled as a standalone executable (e.g. via PyInstaller) rather than
+// shelling out to any `python3` at all — that's a separate, larger task not
 // solved here.
 
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 use std::time::Duration;
@@ -33,18 +39,60 @@ const SERVER_HEALTH_URL: &str = "http://127.0.0.1:8420/health";
 const HEALTH_CHECK_ATTEMPTS: u32 = 50;
 const HEALTH_CHECK_INTERVAL_MS: u64 = 200;
 
-fn repo_root() -> std::path::PathBuf {
-    // desktop/src-tauri/ -> desktop/ -> repo root
-    std::env::current_dir()
-        .expect("could not read current directory")
-        .parent()
-        .and_then(|p| p.parent())
+fn repo_root() -> PathBuf {
+    // CARGO_MANIFEST_DIR is baked in at compile time as the absolute path to
+    // this crate (desktop/src-tauri/) — unlike std::env::current_dir(), it
+    // does not depend on where `cargo tauri dev`/the packaged binary happens
+    // to be launched from, which verification showed does NOT reliably
+    // match the crate directory.
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()   // desktop/src-tauri -> desktop
+        .and_then(|p| p.parent())   // desktop -> repo root
         .expect("expected desktop/src-tauri to be two levels under the repo root")
         .to_path_buf()
 }
 
+/// Resolve which Python interpreter to launch the server with. Prefers a
+/// project virtualenv over the bare `python3` on PATH, since the latter
+/// resolves to the system interpreter — which has none of
+/// requirements.txt's dependencies installed and makes the desktop app
+/// fail silently at startup (confirmed: this was the actual cause of the
+/// server never becoming healthy during verification).
+///
+/// Resolution order:
+///   1. `OMNIAGENT_PYTHON` env var, if set — explicit escape hatch for
+///      unusual setups (conda, a differently-named venv, etc.)
+///   2. `<repo_root>/.venv/bin/python3` (or `Scripts/python.exe` on Windows)
+///   3. `<repo_root>/venv/bin/python3` (same Windows variant)
+///   4. Bare `python3` on PATH, as a last resort
+fn python_executable(root: &Path) -> String {
+    if let Ok(explicit) = std::env::var("OMNIAGENT_PYTHON") {
+        if !explicit.is_empty() {
+            return explicit;
+        }
+    }
+
+    let candidates = if cfg!(windows) {
+        [".venv/Scripts/python.exe", "venv/Scripts/python.exe"]
+    } else {
+        [".venv/bin/python3", "venv/bin/python3"]
+    };
+
+    for candidate in candidates {
+        let path = root.join(candidate);
+        if path.exists() {
+            return path.to_string_lossy().to_string();
+        }
+    }
+
+    "python3".to_string()
+}
+
 fn spawn_server() -> std::io::Result<Child> {
-    Command::new("python3")
+    let root = repo_root();
+    let python = python_executable(&root);
+
+    Command::new(python)
         .args([
             "-m",
             "uvicorn",
@@ -54,10 +102,11 @@ fn spawn_server() -> std::io::Result<Child> {
             "--log-level",
             "warning",
         ])
-        .current_dir(repo_root())
+        .current_dir(root)
         .stdout(Stdio::null())
         .stderr(Stdio::inherit())
         .spawn()
+
 }
 
 fn wait_for_server_health() -> bool {

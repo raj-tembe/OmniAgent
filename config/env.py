@@ -41,9 +41,25 @@ CHROMA_DB_PATH        = USER_DATA_DIR / "memory" / "chroma_db"
 CHECKPOINT_DIR        = USER_DATA_DIR / "memory" / "checkpoints" / "data"
 SQLITE_DB_PATH        = CHECKPOINT_DIR / "workflow_checkpoints.db"
 
-# Ensure directories exist
+# Ensure directories exist. Wrapped in try/except rather than left to raise:
+# a read-only or inaccessible default location (a restricted CI sandbox, a
+# read-only home directory) would otherwise hard-crash on the mere act of
+# importing this module, breaking every test that transitively imports
+# `config` even if it never touches the filesystem itself. Set
+# OMNIAGENT_DATA_DIR to a writable location to fix this properly rather than
+# relying on the warning below — see tests/conftest.py for how the test
+# suite does exactly that automatically.
+import logging as _logging
+
 for _dir in [GENERATED_PROJECT_DIR, MEMORY_STORAGE_DIR, CHROMA_DB_PATH, CHECKPOINT_DIR]:
-    _dir.mkdir(parents=True, exist_ok=True)
+    try:
+        _dir.mkdir(parents=True, exist_ok=True)
+    except OSError as _exc:
+        _logging.getLogger(__name__).warning(
+            "Could not create data directory %s (%s). Set OMNIAGENT_DATA_DIR to a "
+            "writable location, or this path will fail on first actual use.",
+            _dir, _exc,
+        )
 
 # LLM Configuration
 # Provider selection: "gemini", "openai", "groq", "ollama", "huggingface_local", "huggingface_cloud"
