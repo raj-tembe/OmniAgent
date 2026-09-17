@@ -35,20 +35,55 @@ def _wait_for_response(conn: JsonRpcConnection, request_id: int, deadline: float
     raise LspError("Timed out waiting for the language server to respond to 'initialize'.")
 
 
-def _wait_for_diagnostics(conn: JsonRpcConnection, uri: str, deadline: float) -> List[Dict[str, Any]]:
-    while time.time() < deadline:
-        msg = conn.next_message(timeout=max(0.05, deadline - time.time()))
-        if msg is None:
+def _wait_for_diagnostics(
+    conn: JsonRpcConnection,
+    uri: str,
+    deadline: float,
+    settle_seconds: float = 1.5,
+) -> List[Dict[str, Any]]:
+    """
+    Collect `publishDiagnostics` notifications for `uri`, keeping the most
+    recent one rather than returning on the first match.
+
+    Some servers publish diagnostics progressively: rust-analyzer in
+    particular can send an initial (sometimes empty) result immediately
+    after `didOpen`, then one or more follow-ups as background
+    indexing/analysis actually completes. Returning on the first match risks
+    reporting "no issues" before the server has finished checking anything
+    at all — confirmed live: a file with a genuine type error came back as
+    `[]` after ~3 seconds, well under any reasonable timeout, because that
+    first (empty) publish won the race.
+
+    After each publish for `uri`, we wait `settle_seconds` for a possible
+    follow-up before giving up and returning what we have. Servers that only
+    ever publish once (`pylsp`, in practice) only pay this settle delay one
+    time, not the full timeout — this isn't "always wait as long as
+    possible," it's "give a fast follow-up a chance to arrive."
+    """
+    latest: Optional[List[Dict[str, Any]]] = None
+    settle_deadline: Optional[float] = None
+
+    while True:
+        now = time.time()
+        current_deadline = deadline if settle_deadline is None else min(deadline, settle_deadline)
+        if now >= current_deadline:
             break
+
+        msg = conn.next_message(timeout=max(0.05, current_deadline - now))
+        if msg is None:
+            continue  # next loop iteration re-checks current_deadline and exits if it's passed
+
         if msg.get("method") == "textDocument/publishDiagnostics":
             params = msg.get("params", {})
             if params.get("uri") == uri:
-                return [_format_diagnostic(d) for d in params.get("diagnostics", [])]
-    # No diagnostics notification arrived in time — most servers only
+                latest = [_format_diagnostic(d) for d in params.get("diagnostics", [])]
+                settle_deadline = time.time() + settle_seconds
+
+    # No diagnostics notification arrived in time at all — most servers only
     # publish when there's something to report or on first analysis
-    # completion, so this is "clean, as far as we waited to find out",
-    # not necessarily "definitely no issues".
-    return []
+    # completion, so this is "clean, as far as we waited to find out", not
+    # necessarily "definitely no issues".
+    return latest if latest is not None else []
 
 
 def _format_diagnostic(d: Dict[str, Any]) -> Dict[str, Any]:
@@ -63,12 +98,22 @@ def _format_diagnostic(d: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def get_diagnostics(filepath: str, content: Optional[str] = None, timeout: float = 15.0) -> List[Dict[str, Any]]:
+def get_diagnostics(
+    filepath: str,
+    content: Optional[str] = None,
+    timeout: float = 15.0,
+    settle_seconds: float = 1.5,
+) -> List[Dict[str, Any]]:
     """
     Get diagnostics for `filepath` from the language server registered for
     its extension. `content` defaults to the file's current on-disk
     contents — pass it explicitly to check content that hasn't been saved
     yet (e.g. the coder agent's proposed edit, before it's written out).
+
+    `settle_seconds` controls how long to wait after each diagnostics
+    publish for a possible follow-up before returning — see
+    `_wait_for_diagnostics`'s docstring. The default is tuned for `pylsp`;
+    a slower-to-settle server may need a larger value.
 
     Raises LspError if no server is configured for this file type, or if
     the server doesn't respond within `timeout` seconds.
@@ -104,7 +149,7 @@ def get_diagnostics(filepath: str, content: Optional[str] = None, timeout: float
             },
         })
 
-        return _wait_for_diagnostics(conn, uri, deadline)
+        return _wait_for_diagnostics(conn, uri, deadline, settle_seconds=settle_seconds)
 
     finally:
         try:

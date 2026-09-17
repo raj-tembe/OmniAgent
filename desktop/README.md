@@ -39,12 +39,17 @@ Standalone desktop IDE shell for OmniAgent, built with Tauri (Rust) + React.
     auto-run.
   - Frontend test coverage: `npm test` runs Node's built-in test runner
     against pure-logic modules (no React/DOM involved).
-- **Shell (`src-tauri/`)**: **compiles cleanly** (`cargo check` verified on a
-  real machine — 0 errors, 0 warnings). Two real bugs found by that same
-  verification pass have been fixed (see "Fixed since first verification
-  pass" below); full runtime behavior (window opens, session survives a
-  real click-through, clean shutdown) has not been re-verified since those
-  fixes landed — see "Still needs verification."
+- **Shell (`src-tauri/`)**: **compiles cleanly and runs** — Round 2
+  verification confirmed a real `cargo tauri dev` window opens, the backend
+  becomes healthy (using the project venv, not system Python), and a clean
+  window-close shuts everything down with no leaked process. A force-quit
+  (SIGKILL) still leaked the spawned server as of Round 1; fixed for Linux
+  via `PR_SET_PDEATHSIG` (see "Round 2 verification" below) — **not yet
+  re-verified after that fix**. The full in-app session walkthrough (run a
+  task, see the diff/diagnostics panels populate, approve a permission
+  prompt, use the workspace browser) also hasn't been exercised yet — Round
+  2 confirmed the app *opens* but didn't have an LLM provider configured to
+  run an actual session through it.
 - **Backend**: the existing `server/app.py` (Phase 4). The shell spawns it
   as a subprocess on port 8420 and waits for `/health` before considering it
   ready — see "Python interpreter resolution" below for how it picks which
@@ -83,59 +88,89 @@ Resolution order now:
 Create a `.venv` at the repo root and `pip install -r requirements.txt`
 into it, and this resolves automatically with no configuration needed.
 
-## Fixed since first verification pass
+## Round 1 verification: found and fixed
 
 A real verification pass (`cargo check`, a live `cargo tauri dev` attempt,
-a full Python suite run) surfaced five issues, all fixed:
+a full Python suite run) surfaced five issues:
 
 1. **Bare `python3` resolved to the system interpreter, not the project
    venv** — the backend never started. Fixed via the resolution order
    above.
 2. **`repo_root()` used `std::env::current_dir()`**, which `cargo tauri dev`
-   does not reliably set to the crate directory (verification showed it
-   landing one level too high, outside the repo entirely). Fixed by using
+   does not reliably set to the crate directory. Fixed by using
    `CARGO_MANIFEST_DIR` — a compile-time constant Cargo always sets
    correctly regardless of the runtime working directory.
 3. **`npm test` failed with a cryptic error on Node < 22.6** — no
    `engines` constraint existed to catch this earlier. Fixed with the
    `engines` field + `.npmrc`'s `engine-strict=true` described above.
 4. **Importing `config` crashed outright on a read-only/inaccessible
-   default data directory** — every test that transitively imports it
-   failed at collection time. Fixed: directory creation in `config/env.py`
-   is now wrapped in try/except (logs a warning and continues rather than
-   raising), and `tests/conftest.py` now points `OMNIAGENT_DATA_DIR` at a
-   fresh temp directory for the whole test session automatically, so this
-   can't recur regardless of the machine's home-directory permissions.
-5. **`rust-analyzer` timed out during LSP verification** — this one is not
-   a bug in `lsp/client.py`, as far as investigation so far shows.
-   `rust-analyzer` needs a real Cargo workspace (a `Cargo.toml` with actual
-   dependencies) to fully initialize, and can legitimately take much longer
-   than `pylsp` does on first analysis/indexing. `lsp/servers.py`'s
-   `get_diagnostics(..., timeout=...)` is configurable per call — a test
-   against a file inside a real, already-built Cargo project with a longer
-   timeout (60s+) would be a fairer test than a lone `.rs` file in `/tmp`.
-   TypeScript/Go servers remain completely untested (not installed during
-   verification).
+   default data directory.** Fixed: directory creation in `config/env.py`
+   is now wrapped in try/except (logs a warning, doesn't raise), and
+   `tests/conftest.py` points `OMNIAGENT_DATA_DIR` at a fresh temp
+   directory for the whole test session automatically.
+5. **`rust-analyzer` timed out during LSP verification** — turned out to be
+   an unfair test (a lone `.rs` file with no surrounding Cargo project),
+   not a code bug on its own — see Round 2 below for what the fair retest
+   actually found.
 
-## Still needs verification
+## Round 2 verification: found and fixed
 
-- Full `cargo tauri dev` runtime walkthrough with the two startup bugs
-  fixed: does the window open, does a real end-to-end session (run a task,
-  see the diff/diagnostics panels populate, approve a permission prompt)
-  work start to finish, does the process shut down cleanly (no leaked
-  `uvicorn`) on both a normal close and a force-quit.
-- Docker-based sandbox execution with Docker actually running.
-- Non-Python LSP servers, with a fairer test setup (see point 5 above).
+With Round 1's fixes in place, a second pass confirmed the backend now
+starts correctly and the app window opens, and found two more real issues:
+
+1. **Force-quit (SIGKILL) leaked the spawned `uvicorn` process.** This is
+   expected in one sense — no process can catch or react to a signal that
+   kills it, on any OS — but there's a real kernel-level mechanism for
+   exactly this case. On Linux, `spawn_server()` now uses
+   `PR_SET_PDEATHSIG` (via the `libc` crate, Linux-only dependency) to ask
+   the kernel to send the child SIGTERM automatically when this process
+   dies for *any* reason, including one it never got a chance to react to.
+   **No equivalent exists yet for macOS** (`prctl` has no direct analogue)
+   **or Windows** (would need a Job Object configured with
+   `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`) — those platforms don't get this
+   guarantee. A graceful close (window close, Ctrl+C) already worked
+   correctly on every platform before this fix, via the existing
+   `ExitRequested` handler; this only closes the "couldn't react" gap, and
+   only on Linux so far.
+2. **`rust-analyzer` returned `[]` for a file with a genuine, obvious type
+   error**, even with a real Cargo project and a 90-second budget — not a
+   timeout after all, a wrong answer returned quickly (~3 seconds). Root
+   cause: `lsp/client.py`'s `_wait_for_diagnostics` returned on the *first*
+   `textDocument/publishDiagnostics` notification for the file's URI.
+   `rust-analyzer` publishes progressively — an initial (often empty)
+   result immediately after the file opens, then a real one once
+   background analysis/indexing actually finishes — and the first, empty
+   one was winning the race. Fixed with a settle window: after each publish
+   for a URI, wait `settle_seconds` (default 1.5s) for a possible
+   follow-up before returning the latest one seen, rather than the first.
+   Verified two ways: new unit tests proving a later publish supersedes an
+   earlier one (and vice versa — an empty follow-up correctly supersedes a
+   real earlier result too, since "latest" is the actual rule, not "prefer
+   non-empty"), and confirming the existing live `pylsp` tests still pass
+   unchanged — `pylsp` only ever publishes once in practice, so this adds
+   at most `settle_seconds` of latency for it, not the full timeout.
+   TypeScript/Go servers remain completely untested.
+
+## Still needs verification (Round 3)
+
+- Re-run the force-quit leak test now that `PR_SET_PDEATHSIG` is in place —
+  Round 2 found the bug but predates this fix.
+- Re-run the `rust-analyzer` retest now that the settle-window fix is in
+  place — Round 2 found the bug but predates this fix too.
+- The full in-app session walkthrough end to end with a configured LLM
+  provider: run a task, watch the diff/diagnostics panels populate from a
+  real session (not just confirm the window opens), approve a permission
+  prompt through the actual dialog, use the workspace browser + redirection
+  through the UI.
+- Docker-based sandbox execution with Docker actually running — still
+  entirely unverified; confirmed only that its absence fails gracefully
+  (a normal failed `ExecutionResult`, not a crash).
+- Non-Python LSP servers other than `rust-analyzer` (TypeScript, Go).
 - No packaging story yet for shipping the Python backend as part of a
   distributable build — `main.rs` still shells out to a `python3`
   (resolved per above), which works for local development but not for
   something you hand to someone else to install. A standalone Python build
   (PyInstaller or similar) is a follow-up task.
-- `Cargo.lock` should be committed (Tauri apps are binaries, not
-  libraries — `Cargo.lock` belongs in version control for those) but
-  couldn't be generated without a Rust toolchain. If your `cargo check`/
-  `cargo tauri dev` run generated one along with `src-tauri/icons/`,
-  commit both.
 
 ## Development setup
 

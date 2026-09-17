@@ -92,7 +92,8 @@ fn spawn_server() -> std::io::Result<Child> {
     let root = repo_root();
     let python = python_executable(&root);
 
-    Command::new(python)
+    let mut command = Command::new(python);
+    command
         .args([
             "-m",
             "uvicorn",
@@ -104,9 +105,36 @@ fn spawn_server() -> std::io::Result<Child> {
         ])
         .current_dir(root)
         .stdout(Stdio::null())
-        .stderr(Stdio::inherit())
-        .spawn()
+        .stderr(Stdio::inherit());
 
+    // On Linux, ask the kernel to send the child SIGTERM automatically if
+    // this process (its parent) dies for any reason — including a SIGKILL
+    // this process itself has no way to react to, since no process can
+    // catch or handle a signal that kills it. Verified against a real
+    // force-quit: without this, the spawned uvicorn process was reparented
+    // to PID 1 and kept running indefinitely (Round 2 verification, bug #1).
+    //
+    // No equivalent exists on macOS (prctl/PR_SET_PDEATHSIG is Linux-only)
+    // or Windows (would need a Job Object configured with
+    // JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE) — those platforms don't get this
+    // guarantee yet. A graceful close (window close, Ctrl+C) is already
+    // handled on every platform via the ExitRequested handler in main()
+    // below; this only covers the "can't react, wasn't given the chance"
+    // case, and only on Linux for now.
+    #[cfg(target_os = "linux")]
+    {
+        use std::os::unix::process::CommandExt;
+        unsafe {
+            command.pre_exec(|| {
+                if libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM) != 0 {
+                    return Err(std::io::Error::last_os_error());
+                }
+                Ok(())
+            });
+        }
+    }
+
+    command.spawn()
 }
 
 fn wait_for_server_health() -> bool {

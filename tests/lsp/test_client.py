@@ -1,9 +1,11 @@
+import itertools
 import shutil
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import MagicMock
 
-from lsp.client import LspError, get_diagnostics
+from lsp.client import LspError, _wait_for_diagnostics, get_diagnostics
 
 
 class TestGetDiagnosticsErrorPaths(unittest.TestCase):
@@ -18,6 +20,98 @@ class TestGetDiagnosticsErrorPaths(unittest.TestCase):
         # doesn't exist and no `content=` override, so the read itself fails
         with self.assertRaises(OSError):
             get_diagnostics("/nonexistent/path/does_not_exist.py")
+
+
+class TestWaitForDiagnosticsSettleWindow(unittest.TestCase):
+    """
+    Real bug found in live verification: rust-analyzer publishes an initial
+    (empty) diagnostics result immediately after didOpen, then a real one
+    once analysis actually finishes. Returning on the first match reported
+    "no issues" for a file with a genuine type error, after ~3 seconds, well
+    under any reasonable timeout. These tests prove the settle-window fix
+    keeps the LATEST publish for a URI, not the first.
+    """
+
+    @staticmethod
+    def _fake_connection(*scripted_messages):
+        conn = MagicMock()
+        # after the scripted messages run out, keep returning None forever —
+        # a fixed-length side_effect list would raise StopIteration instead,
+        # which doesn't represent "nothing more arrived" the way real
+        # next_message() timing out over and over does
+        conn.next_message.side_effect = itertools.chain(scripted_messages, itertools.repeat(None))
+        return conn
+
+    def test_later_publish_for_same_uri_supersedes_earlier_one(self):
+        import time
+
+        conn = self._fake_connection(
+            {"method": "textDocument/publishDiagnostics", "params": {"uri": "file:///a.rs", "diagnostics": []}},
+            {"method": "textDocument/publishDiagnostics", "params": {"uri": "file:///a.rs", "diagnostics": [
+                {"severity": 1, "message": "mismatched types", "range": {"start": {"line": 1, "character": 4}}, "source": "rust-analyzer"},
+            ]}},
+        )
+
+        result = _wait_for_diagnostics(conn, "file:///a.rs", deadline=time.time() + 10, settle_seconds=0.05)
+
+        self.assertEqual(len(result), 1)
+        self.assertIn("mismatched types", result[0]["message"])
+
+    def test_single_publish_is_still_returned_after_settle_window(self):
+        import time
+
+        conn = self._fake_connection(
+            {"method": "textDocument/publishDiagnostics", "params": {"uri": "file:///a.py", "diagnostics": [
+                {"severity": 1, "message": "undefined name", "range": {"start": {"line": 0, "character": 0}}, "source": "pyflakes"},
+            ]}},
+        )
+
+        result = _wait_for_diagnostics(conn, "file:///a.py", deadline=time.time() + 10, settle_seconds=0.05)
+
+        self.assertEqual(len(result), 1)
+        self.assertIn("undefined name", result[0]["message"])
+
+    def test_empty_follow_up_after_a_real_result_is_not_dropped_silently(self):
+        """
+        Also verify the reverse ordering doesn't silently regress: if a real
+        result arrives first and an (unusual) empty one follows within the
+        settle window, the LATEST one — even if empty — should win, since
+        "latest" is the whole point, not "prefer non-empty."
+        """
+        import time
+
+        conn = self._fake_connection(
+            {"method": "textDocument/publishDiagnostics", "params": {"uri": "file:///a.rs", "diagnostics": [
+                {"severity": 1, "message": "stale error", "range": {"start": {"line": 0, "character": 0}}},
+            ]}},
+            {"method": "textDocument/publishDiagnostics", "params": {"uri": "file:///a.rs", "diagnostics": []}},
+        )
+
+        result = _wait_for_diagnostics(conn, "file:///a.rs", deadline=time.time() + 10, settle_seconds=0.05)
+
+        self.assertEqual(result, [])
+
+    def test_diagnostics_for_a_different_uri_are_ignored(self):
+        import time
+
+        conn = self._fake_connection(
+            {"method": "textDocument/publishDiagnostics", "params": {"uri": "file:///other.py", "diagnostics": [
+                {"severity": 1, "message": "unrelated", "range": {"start": {"line": 0, "character": 0}}},
+            ]}},
+        )
+
+        result = _wait_for_diagnostics(conn, "file:///a.py", deadline=time.time() + 0.2, settle_seconds=0.05)
+
+        self.assertEqual(result, [])
+
+    def test_no_publish_at_all_returns_empty_list(self):
+        import time
+
+        conn = self._fake_connection()
+
+        result = _wait_for_diagnostics(conn, "file:///a.py", deadline=time.time() + 0.1, settle_seconds=0.05)
+
+        self.assertEqual(result, [])
 
 
 @unittest.skipUnless(shutil.which("pylsp"), "pylsp not installed in this environment")
