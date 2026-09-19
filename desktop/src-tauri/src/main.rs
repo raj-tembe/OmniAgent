@@ -88,13 +88,31 @@ fn python_executable(root: &Path) -> String {
     "python3".to_string()
 }
 
+/// Path to the bundled standalone server executable, if `scripts/build_desktop_backend.sh`
+/// has been run (see that script and desktop/README.md's "Packaging" section).
+/// Checked before falling back to spawning any `python3` at all — this is
+/// what makes a built app not require the end user to have Python or this
+/// repo's dependencies installed.
+fn bundled_server_path(root: &Path) -> Option<PathBuf> {
+    let name = if cfg!(windows) { "omniagent-server.exe" } else { "omniagent-server" };
+    let candidate = root.join("dist").join(name);
+    candidate.exists().then_some(candidate)
+}
+
 fn spawn_server() -> std::io::Result<Child> {
     let root = repo_root();
-    let python = python_executable(&root);
 
-    let mut command = Command::new(python);
-    command
-        .args([
+    let mut command = if let Some(bundled) = bundled_server_path(&root) {
+        // The bundled binary is a plain executable (see
+        // server_entrypoint.py) that takes the port as its one argument —
+        // no "-m uvicorn ..." invocation needed, unlike the dev-mode path.
+        let mut cmd = Command::new(bundled);
+        cmd.arg(SERVER_PORT.to_string());
+        cmd
+    } else {
+        let python = python_executable(&root);
+        let mut cmd = Command::new(python);
+        cmd.args([
             "-m",
             "uvicorn",
             "server.app:app",
@@ -102,8 +120,12 @@ fn spawn_server() -> std::io::Result<Child> {
             &SERVER_PORT.to_string(),
             "--log-level",
             "warning",
-        ])
-        .current_dir(root)
+        ]);
+        cmd
+    };
+
+    command
+        .current_dir(&root)
         .stdout(Stdio::null())
         .stderr(Stdio::inherit());
 

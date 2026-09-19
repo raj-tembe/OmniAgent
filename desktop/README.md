@@ -166,11 +166,57 @@ starts correctly and the app window opens, and found two more real issues:
   entirely unverified; confirmed only that its absence fails gracefully
   (a normal failed `ExecutionResult`, not a crash).
 - Non-Python LSP servers other than `rust-analyzer` (TypeScript, Go).
-- No packaging story yet for shipping the Python backend as part of a
-  distributable build — `main.rs` still shells out to a `python3`
-  (resolved per above), which works for local development but not for
-  something you hand to someone else to install. A standalone Python build
-  (PyInstaller or similar) is a follow-up task.
+- `main.rs`'s bundled-binary path (`bundled_server_path()` / the branch of
+  `spawn_server()` that uses it) hasn't been exercised by `cargo tauri dev`
+  or `cargo tauri build` yet — no Rust toolchain was available to compile
+  it in the environment this was written in, same caveat as the rest of
+  `main.rs`. Traced through by hand for type correctness; needs a real
+  `cargo check` to confirm.
+- Packaging doesn't yet produce a true one-click installer — see
+  "Packaging" below for what's actually done vs. still manual.
+
+## Packaging
+
+`scripts/build_desktop_backend.sh` bundles the Python backend into a single
+standalone executable via PyInstaller — this is real and verified, not just
+written: the built binary was run in an isolated temp directory with
+`PYTHONPATH` unset and a stripped-down `PATH`, and correctly served
+`GET /health` and `POST /sessions` (creating a real session, proving the
+whole import chain — config, permission, bus, the graph — works from a
+frozen bundle, not just that the build step succeeded).
+
+```bash
+pip install -r requirements-build.txt
+./scripts/build_desktop_backend.sh
+# produces dist/omniagent-server (or dist/omniagent-server.exe on Windows)
+```
+
+`main.rs`'s `spawn_server()` now checks for `dist/omniagent-server` (see
+`bundled_server_path()`) before falling back to the venv/system-Python
+resolution described above — if the bundle exists, it's used; if not,
+nothing changes from before. This means running the build script once,
+then `cargo tauri dev`/`cargo tauri build`, no longer requires a Python
+environment to be set up on the machine the app actually runs on.
+
+What's still manual/not done:
+- The binary (~125MB in testing, mostly transitive dependencies like
+  `scipy`/`matplotlib` pulled in indirectly by something in the dependency
+  tree) isn't trimmed down. `--collect-submodules` was used per-package
+  rather than more surgical hidden-imports, which is safer (less likely to
+  silently omit something needed) but pulls in more than necessary — a
+  follow-up could investigate excluding unused packages explicitly.
+  `graph.graph_visualizer` and `tools.integration_test_helper` in
+  particular look like dev-only modules that don't need to ship.
+- The bundled binary isn't wired into Tauri's own bundling/installer
+  pipeline (Tauri's "sidecar" mechanism, which would let `cargo tauri
+  build` package it automatically into the final installer) — right now
+  it's a separate manual build step, and `spawn_server()` finds it via a
+  fixed relative path (`<repo_root>/dist/`) rather than Tauri's own
+  resource resolution. Real, but the simpler of two ways to solve this,
+  not the more integrated one.
+- No code signing / notarization (macOS) or equivalent, needed for a
+  distributable build most users could actually install without a
+  security warning.
 
 ## Development setup
 

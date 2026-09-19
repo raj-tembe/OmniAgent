@@ -1,0 +1,5 @@
+# Dependencies needed only to build the standalone desktop backend
+# (scripts/build_desktop_backend.sh), not to run OmniAgent itself.
+# Install with: pip install -r requirements-build.txt
+
+pyinstaller>=6.0.0
