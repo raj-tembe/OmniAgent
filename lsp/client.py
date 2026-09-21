@@ -20,6 +20,40 @@ from lsp.servers import get_language_id, get_server_command
 
 SEVERITY_NAMES = {1: "error", 2: "warning", 3: "information", 4: "hint"}
 
+#markers checked (in this order at each directory level) to find the
+#project a file belongs to. Language-specific ones first so e.g. a Rust
+#crate inside a larger .git-tracked monorepo resolves to the crate, not
+#the whole repo.
+_WORKSPACE_MARKERS = ("Cargo.toml", "pyproject.toml", "setup.py", "package.json", "go.mod", ".git")
+
+
+def _find_workspace_root(file_path: Path) -> Path:
+    """
+    Walk up from `file_path`'s directory looking for a project marker, so
+    the language server gets pointed at the actual project the file
+    belongs to. Falls back to the file's own parent directory if nothing
+    is found.
+
+    This fixes a real, confirmed bug: `get_diagnostics` previously always
+    used the *calling process's* current working directory as `rootUri`,
+    completely unrelated to the file being checked. For a server like
+    `pylsp` checking a file inside the same repo the server happens to run
+    from, this accidentally worked. For `rust-analyzer` checking a file in
+    an unrelated project, it meant the server couldn't discover any
+    workspace at all and silently never analyzed the file — confirmed live:
+    diagnostics came back correct once pointed at the right root, empty
+    every time before.
+    """
+    current = file_path.resolve().parent
+    while True:
+        for marker in _WORKSPACE_MARKERS:
+            if (current / marker).exists():
+                return current
+        if current.parent == current:
+            break
+        current = current.parent
+    return file_path.resolve().parent
+
 
 class LspError(Exception):
     """Raised when a language server can't be launched or doesn't respond in time."""
@@ -127,13 +161,14 @@ def get_diagnostics(
         content = path.read_text(encoding="utf-8")
 
     uri = path.resolve().as_uri()
+    workspace_root = _find_workspace_root(path)
     deadline = time.time() + timeout
 
     conn = JsonRpcConnection.spawn(command)
     try:
         request_id = conn.send_request("initialize", {
             "processId": None,
-            "rootUri": Path.cwd().resolve().as_uri(),
+            "rootUri": workspace_root.as_uri(),
             "capabilities": {},
         })
         _wait_for_response(conn, request_id, deadline)

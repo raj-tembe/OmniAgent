@@ -151,27 +151,53 @@ starts correctly and the app window opens, and found two more real issues:
    at most `settle_seconds` of latency for it, not the full timeout.
    TypeScript/Go servers remain completely untested.
 
-## Still needs verification (Round 3)
+**`rust-analyzer` still wasn't done, though** — Round 3's retest (with the
+settle-window fix in place) found a *third*, more fundamental bug: it
+still returned `[]`, this time because `get_diagnostics` had been sending
+the wrong `rootUri` in the `initialize` request all along — the *calling
+process's* current working directory, completely unrelated to the file
+actually being checked. `pylsp` tolerated this by accident (it was always
+being asked to check a file inside the same repo the server itself runs
+from); `rust-analyzer` genuinely needs to discover the real project a file
+belongs to, and couldn't. Fixed: `_find_workspace_root()` now walks up
+from the file's own directory looking for a project marker (`Cargo.toml`,
+`pyproject.toml`, `go.mod`, `package.json`, or `.git`), falling back to the
+file's parent directory if none is found. Verified with unit tests
+covering the exact failure shape (an unrelated cwd shouldn't affect the
+result) plus nested-marker and nearest-marker-wins cases, and confirmed
+the live `pylsp` tests still pass unchanged.
 
-- Re-run the force-quit leak test now that `PR_SET_PDEATHSIG` is in place —
-  Round 2 found the bug but predates this fix.
-- Re-run the `rust-analyzer` retest now that the settle-window fix is in
-  place — Round 2 found the bug but predates this fix too.
+## Round 3 verification: found and fixed
+
+With Round 2's fixes confirmed working (force-quit leak fixed, `cargo
+check` passing), Round 3 tested the new packaging pipeline and re-tested
+`rust-analyzer` — and found two real bugs, detailed in "Packaging" below
+and the `rust-analyzer` section above respectively. Also confirmed clean
+in this round: 228 tests still pass, `cargo check` still passes, the
+force-quit fix genuinely works (verified by killing the Tauri binary
+directly and confirming the child `uvicorn` process disappears), and the
+Round 1/2 venv-Python fallback path still works correctly.
+
+## Still needs verification (Round 4)
+
+- Re-run the packaging build with `torch`/`transformers` actually present
+  in the build venv, to confirm `--exclude-module` genuinely keeps them
+  out (this environment couldn't install real `torch` to test that exact
+  case — see "Packaging" below).
+- Re-run `cargo tauri dev` with a working bundled binary present this
+  time, to confirm `spawn_server()` actually spawns it correctly (Round 3
+  could only confirm the fallback path, since the bundle itself was
+  broken).
 - The full in-app session walkthrough end to end with a configured LLM
   provider: run a task, watch the diff/diagnostics panels populate from a
   real session (not just confirm the window opens), approve a permission
   prompt through the actual dialog, use the workspace browser + redirection
-  through the UI.
+  through the UI. Still entirely untested after 3 rounds — no provider has
+  been configured in any verification pass so far.
 - Docker-based sandbox execution with Docker actually running — still
   entirely unverified; confirmed only that its absence fails gracefully
   (a normal failed `ExecutionResult`, not a crash).
 - Non-Python LSP servers other than `rust-analyzer` (TypeScript, Go).
-- `main.rs`'s bundled-binary path (`bundled_server_path()` / the branch of
-  `spawn_server()` that uses it) hasn't been exercised by `cargo tauri dev`
-  or `cargo tauri build` yet — no Rust toolchain was available to compile
-  it in the environment this was written in, same caveat as the rest of
-  `main.rs`. Traced through by hand for type correctness; needs a real
-  `cargo check` to confirm.
 - Packaging doesn't yet produce a true one-click installer — see
   "Packaging" below for what's actually done vs. still manual.
 
@@ -198,15 +224,42 @@ nothing changes from before. This means running the build script once,
 then `cargo tauri dev`/`cargo tauri build`, no longer requires a Python
 environment to be set up on the machine the app actually runs on.
 
+### Round 3 finding: a 2.6GB binary that failed to bind its port at all
+
+Live verification against a machine with a full `pip install -r
+requirements.txt` found the bundled binary balloon to 2.6GB and silently
+fail to serve `/health` — extracting but never binding the port, no error
+output. Root cause, found via the size number itself:
+`requirements.txt`'s "optional" LLM provider packages
+(`langchain-openai`/`-groq`/`-ollama`/`-huggingface`) and the HuggingFace
+utilities (`transformers`, `torch`) were labeled optional in a comment but
+**not actually commented out** — a pre-existing bug, now fixed. Every
+`pip install -r requirements.txt` was silently installing the full
+`transformers`/`torch`/CUDA stack regardless of which provider you
+actually use.
+
+Two fixes, in this repo now:
+1. `requirements.txt`'s optional provider/ML lines are now genuinely
+   commented out — `pip install -r requirements.txt` installs only what's
+   universally needed (Gemini by default) unless you explicitly uncomment
+   more.
+2. `scripts/build_desktop_backend.sh` also now passes `--exclude-module`
+   for `torch`, `transformers`, and related packages defensively — even a
+   build run from a dev venv that has them installed (for local-inference
+   work, say) won't end up bundling them.
+
+**Re-verified in this environment with fix #1 applied (torch/transformers
+absent): binary size back to ~120MB, and it correctly served `/health` and
+`POST /sessions` in the same isolated, no-`PYTHONPATH` test as before.**
+**Not yet re-verified with fix #2's defense specifically**: this
+environment couldn't install a real `torch` (PyTorch's own package index
+isn't reachable from here, and the full PyPI wheel didn't fit available
+disk space) to do an exact before/after match of the original 2.6GB
+failure. The size drop and working bundle are confirmed for the "torch was
+never installed" case; confirming `--exclude-module` correctly excludes it
+even when it *is* present in the build venv is the next thing to verify.
+
 What's still manual/not done:
-- The binary (~125MB in testing, mostly transitive dependencies like
-  `scipy`/`matplotlib` pulled in indirectly by something in the dependency
-  tree) isn't trimmed down. `--collect-submodules` was used per-package
-  rather than more surgical hidden-imports, which is safer (less likely to
-  silently omit something needed) but pulls in more than necessary — a
-  follow-up could investigate excluding unused packages explicitly.
-  `graph.graph_visualizer` and `tools.integration_test_helper` in
-  particular look like dev-only modules that don't need to ship.
 - The bundled binary isn't wired into Tauri's own bundling/installer
   pipeline (Tauri's "sidecar" mechanism, which would let `cargo tauri
   build` package it automatically into the final installer) — right now

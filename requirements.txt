@@ -7,14 +7,25 @@ langchain-google-genai>=2.0.0
 google-generativeai>=0.8.0
 
 # LLM Providers - Optional (install as needed)
+# Commented out on purpose: these pull in heavy transitive dependencies
+# (langchain-huggingface alone drags in transformers + torch, ~2GB+) that
+# most installs don't need. Uncomment whichever provider(s) you actually
+# use, or run the specific `pip install` line yourself. A previous version
+# of this file had these uncommented despite the "optional" label above —
+# confirmed as the actual cause of an unusably large (2.6GB) and
+# unreliable desktop backend bundle, since PyInstaller's build venv had
+# them installed as an unintended side effect of `pip install -r
+# requirements.txt`. scripts/build_desktop_backend.sh also now explicitly
+# excludes torch/transformers even if a build venv has them anyway — see
+# that script for the defensive belt-and-suspenders reasoning.
 # pip install langchain-openai
-langchain-openai>=0.1.0
+# langchain-openai>=0.1.0
 # pip install langchain-groq
-langchain-groq>=0.1.0
+# langchain-groq>=0.1.0
 # pip install langchain-ollama
-langchain-ollama>=0.1.0
+# langchain-ollama>=0.1.0
 # pip install langchain-huggingface
-langchain-huggingface>=0.0.1
+# langchain-huggingface>=0.0.1
 
 # Checkpoint backends - Optional (install as needed)
 # pip install langgraph-checkpoint-sqlite
@@ -35,8 +46,11 @@ fastapi>=0.110.0
 uvicorn>=0.29.0
 
 # HuggingFace utilities (optional, for local inference)
-transformers>=4.30.0
-torch>=2.0.0
+# Commented out for the same reason as the providers above — see that
+# comment block. Uncomment both lines together if you need local
+# HuggingFace inference.
+# transformers>=4.30.0
+# torch>=2.0.0
 
 # Core dependencies
 pydantic>=2.0.0

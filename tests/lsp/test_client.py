@@ -5,7 +5,86 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock
 
-from lsp.client import LspError, _wait_for_diagnostics, get_diagnostics
+from lsp.client import LspError, _find_workspace_root, _wait_for_diagnostics, get_diagnostics
+
+
+class TestFindWorkspaceRoot(unittest.TestCase):
+    """
+    Real bug found in live verification: get_diagnostics used the calling
+    process's cwd as rootUri, unrelated to the file being checked. Confirmed
+    to make rust-analyzer unable to discover any workspace at all for a file
+    outside OmniAgent's own repo. These prove the fix finds the file's
+    actual project.
+    """
+
+    def test_finds_cargo_toml_in_same_directory(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "Cargo.toml").write_text("[package]\nname = \"x\"\n")
+            (root / "src").mkdir()
+            file_path = root / "src" / "main.rs"
+            file_path.write_text("fn main() {}\n")
+
+            found = _find_workspace_root(file_path)
+
+            self.assertEqual(found, root)
+
+    def test_walks_up_multiple_levels_to_find_marker(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "Cargo.toml").write_text("[package]\n")
+            nested = root / "src" / "deep" / "nested"
+            nested.mkdir(parents=True)
+            file_path = nested / "mod.rs"
+            file_path.write_text("")
+
+            found = _find_workspace_root(file_path)
+
+            self.assertEqual(found, root)
+
+    def test_unrelated_cwd_does_not_affect_result(self):
+        """The exact scenario that broke: a file whose project has nothing
+        to do with wherever the calling process happens to be running."""
+        with TemporaryDirectory() as unrelated_cwd, TemporaryDirectory() as project:
+            root = Path(project)
+            (root / "Cargo.toml").write_text("[package]\n")
+            file_path = root / "main.rs"
+            file_path.write_text("")
+
+            import os
+            original_cwd = os.getcwd()
+            os.chdir(unrelated_cwd)
+            try:
+                found = _find_workspace_root(file_path)
+            finally:
+                os.chdir(original_cwd)
+
+            self.assertEqual(found, root)
+            self.assertNotEqual(found, Path(unrelated_cwd).resolve())
+
+    def test_falls_back_to_parent_directory_when_no_marker_found(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            file_path = root / "orphan.rs"
+            file_path.write_text("")
+
+            found = _find_workspace_root(file_path)
+
+            self.assertEqual(found, root)
+
+    def test_prefers_nearest_marker_over_a_further_one(self):
+        with TemporaryDirectory() as tmp:
+            outer = Path(tmp)
+            (outer / ".git").mkdir()
+            inner = outer / "crates" / "my_crate"
+            inner.mkdir(parents=True)
+            (inner / "Cargo.toml").write_text("[package]\n")
+            file_path = inner / "src.rs"
+            file_path.write_text("")
+
+            found = _find_workspace_root(file_path)
+
+            self.assertEqual(found, inner)
 
 
 class TestGetDiagnosticsErrorPaths(unittest.TestCase):
