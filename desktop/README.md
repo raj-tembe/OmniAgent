@@ -188,6 +188,13 @@ Round 1/2 venv-Python fallback path still works correctly.
   time, to confirm `spawn_server()` actually spawns it correctly (Round 3
   could only confirm the fallback path, since the bundle itself was
   broken).
+- `cargo check` on the new Tauri `externalBin`/sidecar wiring
+  (`bundled_server_path`'s new `resource_dir` parameter,
+  `app.path().resource_dir()` usage) — entirely uncompiled, and a real
+  `cargo tauri build` to confirm the staged binary at
+  `desktop/src-tauri/binaries/` actually gets picked up and bundled into
+  a real installer. Needs a machine with `rustc` present when running
+  `scripts/build_desktop_backend.sh`, which this environment didn't have.
 - The full in-app session walkthrough end to end with a configured LLM
   provider: run a task, watch the diff/diagnostics panels populate from a
   real session (not just confirm the window opens), approve a permission
@@ -260,16 +267,31 @@ never installed" case; confirming `--exclude-module` correctly excludes it
 even when it *is* present in the build venv is the next thing to verify.
 
 What's still manual/not done:
-- The bundled binary isn't wired into Tauri's own bundling/installer
-  pipeline (Tauri's "sidecar" mechanism, which would let `cargo tauri
-  build` package it automatically into the final installer) — right now
-  it's a separate manual build step, and `spawn_server()` finds it via a
-  fixed relative path (`<repo_root>/dist/`) rather than Tauri's own
-  resource resolution. Real, but the simpler of two ways to solve this,
-  not the more integrated one.
+- Tauri's `externalBin`/sidecar wiring for `cargo tauri build` is now in
+  place — `tauri.conf.json` declares `externalBin: ["binaries/omniagent-server"]`,
+  `scripts/build_desktop_backend.sh` stages a target-triple-suffixed copy
+  at `desktop/src-tauri/binaries/` when `rustc` is available (skips this
+  step gracefully otherwise — confirmed by running the script without
+  `rustc` present and seeing it still produce a working `dist/omniagent-server`),
+  and `spawn_server()` now checks `app.path().resource_dir()` first (the
+  real installed-app location) before falling back to the `<repo_root>/dist/`
+  check that Round 3 already verified. **None of this new Rust code has
+  been compiled or run** — same standing caveat as the rest of `main.rs`,
+  no Rust toolchain in the environment it was written in. This is
+  genuinely the higher-risk kind of change to leave unverified (new
+  `tauri::Manager` API usage, a changed function signature on
+  `spawn_server`/`bundled_server_path`), so treat it as a first draft
+  needing `cargo check` + an actual `cargo tauri build` before trusting it,
+  more than usual.
 - No code signing / notarization (macOS) or equivalent, needed for a
   distributable build most users could actually install without a
   security warning.
+- The externalBin path has only been reasoned through for `cargo tauri
+  build`'s installer bundling — it hasn't been confirmed that `cargo tauri
+  dev` also picks up `binaries/` correctly (Tauri's dev-mode sidecar
+  resolution may differ from its build-mode one); the `dist/` fallback is
+  what Round 3 actually verified for dev mode and remains the reliable
+  path there.
 
 ## Development setup
 

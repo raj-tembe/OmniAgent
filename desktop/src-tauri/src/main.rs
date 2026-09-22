@@ -88,21 +88,39 @@ fn python_executable(root: &Path) -> String {
     "python3".to_string()
 }
 
-/// Path to the bundled standalone server executable, if `scripts/build_desktop_backend.sh`
-/// has been run (see that script and desktop/README.md's "Packaging" section).
+/// Path to the bundled standalone server executable, checked in this order:
+///   1. `resource_dir` — where Tauri's `externalBin` (see tauri.conf.json)
+///      places the sidecar in a properly built/installed app via
+///      `cargo tauri build`. `None` during `cargo tauri dev` (no bundle
+///      exists yet) or if resolution fails for any reason — falls through
+///      to the next check rather than erroring, since dev mode never has
+///      a resource dir and that's expected, not a problem.
+///   2. `<repo_root>/dist/` — where `scripts/build_desktop_backend.sh`
+///      leaves it, for local `cargo tauri dev` testing before wiring up a
+///      real `cargo tauri build`. This is the path Round 3 verification
+///      actually exercised; the `resource_dir` path above has not been
+///      compiled or run yet — see desktop/README.md.
 /// Checked before falling back to spawning any `python3` at all — this is
 /// what makes a built app not require the end user to have Python or this
 /// repo's dependencies installed.
-fn bundled_server_path(root: &Path) -> Option<PathBuf> {
+fn bundled_server_path(root: &Path, resource_dir: Option<&Path>) -> Option<PathBuf> {
     let name = if cfg!(windows) { "omniagent-server.exe" } else { "omniagent-server" };
+
+    if let Some(dir) = resource_dir {
+        let candidate = dir.join(name);
+        if candidate.exists() {
+            return Some(candidate);
+        }
+    }
+
     let candidate = root.join("dist").join(name);
     candidate.exists().then_some(candidate)
 }
 
-fn spawn_server() -> std::io::Result<Child> {
+fn spawn_server(resource_dir: Option<&Path>) -> std::io::Result<Child> {
     let root = repo_root();
 
-    let mut command = if let Some(bundled) = bundled_server_path(&root) {
+    let mut command = if let Some(bundled) = bundled_server_path(&root, resource_dir) {
         // The bundled binary is a plain executable (see
         // server_entrypoint.py) that takes the port as its one argument —
         // no "-m uvicorn ..." invocation needed, unlike the dev-mode path.
@@ -199,7 +217,14 @@ fn ureq_get(url: &str) -> std::io::Result<bool> {
 fn main() {
     tauri::Builder::default()
         .setup(|app| {
-            let child = spawn_server().expect("failed to spawn the OmniAgent server process");
+            // `.ok()`: resource_dir() returns an error whenever there's no
+            // real app bundle to resolve one from — always true under
+            // `cargo tauri dev`, and that's expected, not a failure.
+            // bundled_server_path() falls through to the dist/ check below
+            // it when this is None.
+            let resource_dir = app.path().resource_dir().ok();
+            let child = spawn_server(resource_dir.as_deref())
+                .expect("failed to spawn the OmniAgent server process");
             app.manage(ServerProcess(Mutex::new(Some(child))));
 
             if !wait_for_server_health() {
