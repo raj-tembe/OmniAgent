@@ -39,17 +39,19 @@ Standalone desktop IDE shell for OmniAgent, built with Tauri (Rust) + React.
     auto-run.
   - Frontend test coverage: `npm test` runs Node's built-in test runner
     against pure-logic modules (no React/DOM involved).
-- **Shell (`src-tauri/`)**: **compiles cleanly and runs** — Round 2
-  verification confirmed a real `cargo tauri dev` window opens, the backend
-  becomes healthy (using the project venv, not system Python), and a clean
-  window-close shuts everything down with no leaked process. A force-quit
-  (SIGKILL) still leaked the spawned server as of Round 1; fixed for Linux
-  via `PR_SET_PDEATHSIG` (see "Round 2 verification" below) — **not yet
-  re-verified after that fix**. The full in-app session walkthrough (run a
-  task, see the diff/diagnostics panels populate, approve a permission
-  prompt, use the workspace browser) also hasn't been exercised yet — Round
-  2 confirmed the app *opens* but didn't have an LLM provider configured to
-  run an actual session through it.
+- **Shell (`src-tauri/`)**: **compiles, runs, and now genuinely
+  packages.** `cargo check` and a real `cargo tauri build` both pass
+  (Round 4) — the bundled Python backend is confirmed included inside an
+  actual `.deb`/`.rpm` package, not just built and left alongside it. The
+  force-quit (SIGKILL) leak from Round 1 is fixed and confirmed fixed
+  (Round 2, via `PR_SET_PDEATHSIG` on Linux). With a real LLM provider
+  configured for the first time (Round 4), a basic session actually ran
+  end to end through the API layer — real generated code, a real diff.
+  What's left: the GUI-only parts (clicking through the permission
+  dialog, workspace browser, and editor-native action buttons rather than
+  hitting their endpoints directly) and installing/running the actual
+  built package rather than just confirming the sidecar is inside it —
+  see "Round 5" below.
 - **Backend**: the existing `server/app.py` (Phase 4). The shell spawns it
   as a subprocess on port 8420 and waits for `/health` before considering it
   ready — see "Python interpreter resolution" below for how it picks which
@@ -178,35 +180,84 @@ force-quit fix genuinely works (verified by killing the Tauri binary
 directly and confirming the child `uvicorn` process disappears), and the
 Round 1/2 venv-Python fallback path still works correctly.
 
-## Still needs verification (Round 4)
+## Round 4 verification: the sidecar wiring actually works
 
+Round 4 was the strongest result yet. `cargo check` passed on the
+previously-uncompiled sidecar code with zero changes needed. `cargo tauri
+build` completed end to end and produced real `.deb` and `.rpm` bundles —
+confirmed the sidecar binary is genuinely included at `/usr/bin/
+omniagent-server` inside the `.deb` package, not just staged and forgotten.
+And with a real Gemini API key configured for the first time in four
+rounds, a real session actually ran: a basic build-mode task produced a
+real `file.diff` with genuine generated code, and plan mode correctly
+declined to execute. One real bug came out of it, fixed below. GUI-only
+parts (the permission dialog's visual appearance, the workspace browser,
+editor-native action buttons) still need a human at the keyboard — the API
+layer underneath all three was exercised and confirmed correct, but
+clicking through the actual UI hasn't happened yet.
+
+**Bug found and fixed**: a session with a permission rule set to `"ask"`
+crashed entirely once it reached the critic step, with a bare
+`FileNotFoundError: 'pylsp'`. Root cause: `lsp/client.py`'s
+`get_diagnostics` spawned the configured language server binary outside
+any error handling, so when it isn't installed — always true in the
+packaged desktop build, which doesn't bundle any LSP servers themselves —
+the raw `FileNotFoundError` propagated straight past
+`critic_agent.py`'s existing `except LspError: continue` handling (which
+only catches `LspError`, not arbitrary `OSError`s) and crashed the whole
+graph node. Fixed: `JsonRpcConnection.spawn()`'s call site now catches
+`OSError` (covers both a missing binary and a found-but-not-executable
+one) and re-raises it as `LspError`, which every caller already handles
+correctly. Verified two ways: new tests reproduce the exact scenario end
+to end (a critic_agent run against a file with no LSP server available
+completes normally instead of crashing), and — extra rigor — those same
+tests were confirmed to *fail* against the pre-fix code with the identical
+`FileNotFoundError` from the live report, proving they're real regression
+tests and not just testing themselves.
+
+**Known limitation, not a bug**: the packaged desktop build still doesn't
+include any LSP servers (`pylsp`, `rust-analyzer`, etc.) — after this fix,
+a bundled-build session simply skips static-analysis diagnostics for
+languages whose server isn't present, rather than crashing. Bundling
+`pylsp` itself (it's a Python program, so in principle a second PyInstaller
+build could produce a sidecar for it too, mirroring how the main server
+is bundled) is a real follow-up, not attempted in this round.
+
+**Also found, not yet resolved**: TypeScript LSP support
+(`typescript-language-server`) didn't respond to `initialize` at all in
+Round 4's environment — the process spawned but never answered, timing
+out rather than erroring. Possibly a TypeScript 7+/`tsserver` packaging
+change upstream rather than a bug in this codebase, but unconfirmed either
+way — needs investigation with a controlled, known-working
+`typescript-language-server` setup before concluding anything.
+
+## Still needs verification (Round 5)
+
+- The GUI-only parts of the session walkthrough: the permission dialog's
+  actual on-screen appearance and click-through (the HTTP layer under it
+  is confirmed correct), the workspace browser, and the editor-native
+  action buttons. All three need a human clicking through `cargo tauri
+  dev`, not an API-level check.
+- Installing the `.deb`/`.rpm` Round 4 produced and confirming the
+  installed app spawns the bundled sidecar with no Python/`uvicorn`
+  visible in `ps aux` at all — Round 4 confirmed the binary is *in* the
+  package but didn't install and run it.
 - Re-run the packaging build with `torch`/`transformers` actually present
   in the build venv, to confirm `--exclude-module` genuinely keeps them
-  out (this environment couldn't install real `torch` to test that exact
-  case — see "Packaging" below).
-- Re-run `cargo tauri dev` with a working bundled binary present this
-  time, to confirm `spawn_server()` actually spawns it correctly (Round 3
-  could only confirm the fallback path, since the bundle itself was
-  broken).
-- `cargo check` on the new Tauri `externalBin`/sidecar wiring
-  (`bundled_server_path`'s new `resource_dir` parameter,
-  `app.path().resource_dir()` usage) — entirely uncompiled, and a real
-  `cargo tauri build` to confirm the staged binary at
-  `desktop/src-tauri/binaries/` actually gets picked up and bundled into
-  a real installer. Needs a machine with `rustc` present when running
-  `scripts/build_desktop_backend.sh`, which this environment didn't have.
-- The full in-app session walkthrough end to end with a configured LLM
-  provider: run a task, watch the diff/diagnostics panels populate from a
-  real session (not just confirm the window opens), approve a permission
-  prompt through the actual dialog, use the workspace browser + redirection
-  through the UI. Still entirely untested after 3 rounds — no provider has
-  been configured in any verification pass so far.
+  out — still not tested with real `torch` present (this environment
+  couldn't install it — see "Packaging" below).
 - Docker-based sandbox execution with Docker actually running — still
-  entirely unverified; confirmed only that its absence fails gracefully
-  (a normal failed `ExecutionResult`, not a crash).
-- Non-Python LSP servers other than `rust-analyzer` (TypeScript, Go).
-- Packaging doesn't yet produce a true one-click installer — see
-  "Packaging" below for what's actually done vs. still manual.
+  entirely unverified across four rounds; confirmed only that its absence
+  fails gracefully (a normal failed `ExecutionResult`, not a crash). Round
+  4 also noted the executor retrying multiple times before reaching
+  critic without Docker available — expected behavior (the existing
+  retry-then-escalate routing in `planner_agent.py`), not a new bug, but
+  worth a clean confirmation once Docker's actually present.
+- TypeScript LSP investigation (see above) — needs a verified-working
+  `typescript-language-server` setup to determine if this is a real bug
+  or an environment/tooling mismatch.
+- Non-Python LSP servers other than what Round 2 already confirmed for
+  `rust-analyzer` — Go untested.
 
 ## Packaging
 

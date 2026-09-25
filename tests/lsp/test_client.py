@@ -3,7 +3,7 @@ import shutil
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from lsp.client import LspError, _find_workspace_root, _wait_for_diagnostics, get_diagnostics
 
@@ -99,6 +99,33 @@ class TestGetDiagnosticsErrorPaths(unittest.TestCase):
         # doesn't exist and no `content=` override, so the read itself fails
         with self.assertRaises(OSError):
             get_diagnostics("/nonexistent/path/does_not_exist.py")
+
+    def test_missing_server_binary_raises_lsp_error_not_bare_oserror(self):
+        """
+        Real bug found in live verification: a missing server binary raised
+        a bare FileNotFoundError from JsonRpcConnection.spawn(), which
+        propagated past every caller's `except LspError` handling —
+        critic_agent.py's _collect_lsp_diagnostics in particular — and
+        crashed the whole graph node instead of just skipping that one
+        file's diagnostics. Confirmed live: this crashed an entire session
+        in the packaged desktop build, which doesn't bundle any LSP
+        servers themselves. The exception TYPE matters here, not just that
+        something gets raised — callers pattern-match on LspError
+        specifically.
+        """
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "app.py"
+            path.write_text("x = 1\n")
+
+            with patch("lsp.client.get_server_command", return_value=["definitely-not-a-real-binary-xyz"]):
+                try:
+                    get_diagnostics(str(path))
+                    self.fail("expected LspError to be raised")
+                except LspError as e:
+                    self.assertIn("Could not start language server", str(e))
+                    self.assertIn("definitely-not-a-real-binary-xyz", str(e))
+                except OSError:
+                    self.fail("get_diagnostics leaked a bare OSError instead of wrapping it as LspError")
 
 
 class TestWaitForDiagnosticsSettleWindow(unittest.TestCase):

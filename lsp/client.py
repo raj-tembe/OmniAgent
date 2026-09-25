@@ -149,8 +149,12 @@ def get_diagnostics(
     `_wait_for_diagnostics`'s docstring. The default is tuned for `pylsp`;
     a slower-to-settle server may need a larger value.
 
-    Raises LspError if no server is configured for this file type, or if
-    the server doesn't respond within `timeout` seconds.
+    Raises LspError if no server is configured for this file type, if the
+    server's executable can't be found or started (missing from PATH — the
+    common case when a language server just isn't installed, or, notably,
+    in the packaged desktop build, which doesn't bundle any LSP servers —
+    see desktop/README.md's "Packaging" section), or if the server doesn't
+    respond within `timeout` seconds.
     """
     path = Path(filepath)
     command = get_server_command(path.suffix)
@@ -164,7 +168,18 @@ def get_diagnostics(
     workspace_root = _find_workspace_root(path)
     deadline = time.time() + timeout
 
-    conn = JsonRpcConnection.spawn(command)
+    try:
+        conn = JsonRpcConnection.spawn(command)
+    except OSError as e:
+        # Confirmed live: a missing server binary raised a bare
+        # FileNotFoundError here, which propagated straight past every
+        # caller's `except LspError` handling (critic_agent.py's
+        # _collect_lsp_diagnostics, in particular) and crashed the whole
+        # graph node instead of just skipping that one file's diagnostics.
+        # OSError covers FileNotFoundError (binary not on PATH) and
+        # PermissionError (found but not executable) alike.
+        raise LspError(f"Could not start language server '{command[0]}': {e}") from e
+
     try:
         request_id = conn.send_request("initialize", {
             "processId": None,

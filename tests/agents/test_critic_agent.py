@@ -73,6 +73,28 @@ class TestCriticAgentLspWiring(unittest.TestCase):
         # should complete normally, not raise
         self.assertEqual(result["review_status"], "approved")
 
+    def test_missing_lsp_server_binary_does_not_crash_the_session(self):
+        """
+        The exact scenario found in live verification: critic_agent runs
+        against a Python file, but the configured LSP server binary (pylsp)
+        isn't on PATH — the real situation in the packaged desktop build,
+        which doesn't bundle any LSP servers. This must degrade to "no
+        diagnostics for this file", not crash the whole graph node. Doesn't
+        mock get_diagnostics at all — goes through the real lsp/ package,
+        only faking which binary lsp/servers.py resolves to.
+        """
+        mock_chain = MagicMock()
+        mock_chain.invoke.return_value = _fake_response()
+
+        with patch("agents.critic.critic_agent.create_critic_chain", return_value=mock_chain), \
+             patch("lsp.client.get_server_command", return_value=["definitely-not-a-real-binary-xyz"]):
+            result = critic_agent({
+                "generated_files": {"app.py": "x = 1\n"},
+                "current_step": "Build app",
+            })
+
+        self.assertEqual(result["review_status"], "approved")
+
     def test_clean_file_produces_placeholder_text(self):
         mock_chain = MagicMock()
         mock_chain.invoke.return_value = _fake_response()
